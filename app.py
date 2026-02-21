@@ -5,9 +5,11 @@ from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_bcrypt import Bcrypt
-from sqlalchemy import func
-from models import db, User, Startup, AuditLog  # noqa: F401
+from sqlalchemy import func, text
+from models import db, User, Startup, AuditLog
 from services import rule_score_calc, call_gemini_score
+from flask_cors import CORS
+
 
 load_dotenv()
 
@@ -18,6 +20,19 @@ app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "change-me")
 db.init_app(app)
 jwt = JWTManager(app)
 bcrypt = Bcrypt(app)
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "http://127.0.0.1:5500",
+                "http://localhost:5500",
+            ]
+        }
+    },
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+)
 
 
 def get_json_body():
@@ -48,8 +63,22 @@ def current_user():
     return User.query.get(user_id)
 
 
+def clamp(value, min_value, max_value):
+    return max(min_value, min(max_value, value))
+
+
+def ensure_schema():
+    # Lightweight SQLite-safe schema patch for MVP (no migrations).
+    cols = db.session.execute(text("PRAGMA table_info(startups)")).fetchall()
+    col_names = {row[1] for row in cols}
+    if "name" not in col_names:
+        db.session.execute(text("ALTER TABLE startups ADD COLUMN name VARCHAR(120) NOT NULL DEFAULT ''"))
+        db.session.commit()
+
+
 with app.app_context():
     db.create_all()
+    ensure_schema()
 
 @app.post("/api/register")
 def register():
@@ -147,8 +176,10 @@ def create_startup():
     if data is None:
         return jsonify({"error": "Invalid or missing JSON body"}), 400
 
-    required = ["idea", "industry", "team_size", "investment_needed", "market_impact"]
+    required = ["name", "idea", "industry", "team_size", "investment_needed"]
     if not all(data.get(k) is not None for k in required):
+        return jsonify({"error": "Missing data"}), 400
+    if not str(data.get("name", "")).strip():
         return jsonify({"error": "Missing data"}), 400
 
     risk_flags = data.get("risk_flags", [])
@@ -159,11 +190,12 @@ def create_startup():
 
     startup = Startup(
         user_id=user.id,
+        name=str(data["name"]).strip(),
         idea=data["idea"],
         industry=data["industry"],
         team_size=int(data["team_size"]),
         investment_needed=float(data["investment_needed"]),
-        market_impact=int(data["market_impact"]),
+        market_impact=5,
         stage=data.get("stage", "idea"),
         rule_score=0,
         ai_score=0,
@@ -227,12 +259,14 @@ def update_startup(startup_id):
     data = get_json_body()
     if data is None:
         return jsonify({"error": "Invalid or missing JSON body"}), 400
+    if "name" in data and not str(data.get("name", "")).strip():
+        return jsonify({"error": "Missing data"}), 400
     for field in [
+        "name",
         "idea",
         "industry",
         "team_size",
         "investment_needed",
-        "market_impact",
         "stage",
     ]:
         if field in data:
@@ -275,8 +309,10 @@ def score_startup(startup_id):
     if user.role not in ["startup", "admin"]:
         return jsonify({"error": "Forbidden"}), 403
 
-    rule_score = rule_score_calc(startup)
     ai_result = call_gemini_score(startup.idea, startup.industry)
+    market_logic = int(ai_result.get("market_logic", 0) or 0)
+    startup.market_impact = 5 if market_logic <= 0 else clamp(market_logic, 1, 10)
+    rule_score = rule_score_calc(startup)
     ai_score = (
         ai_result["clarity"]
         + ai_result["feasibility"]
@@ -306,6 +342,12 @@ def score_startup(startup_id):
             "total_score": startup.total_score,
             "explanation": startup.ai_explanation or "",
             "risk_flags": ai_result["risk_flags"],
+            "ai_breakdown": {
+                "clarity": ai_result["clarity"],
+                "feasibility": ai_result["feasibility"],
+                "differentiation": ai_result["differentiation"],
+                "market_logic": ai_result["market_logic"],
+            },
         }
     ), 200
 
