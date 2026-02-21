@@ -225,6 +225,13 @@ function filteredStartups() {
   return rows;
 }
 
+function formatInvestment(value) {
+  if (value == null || value === "") return "—";
+  const num = Number(value);
+  if (isNaN(num)) return String(value);
+  return num.toLocaleString("en-US");
+}
+
 function openStartupModal(startup) {
   if (!startup) return;
   clearNode(el.viewModalBody);
@@ -233,11 +240,7 @@ function openStartupModal(startup) {
     ["Industry", startup.industry || ""],
     ["Stage", startup.stage || ""],
     ["Team Size", startup.team_size ?? ""],
-    ["Investment", startup.investment_needed ?? ""],
-    ["Total Score", startup.total_score ?? 0],
-    ["Rule Score", startup.rule_score ?? 0],
-    ["AI Score", startup.ai_score ?? 0],
-    ["Idea", startup.idea || ""],
+    ["Investment Needed", formatInvestment(startup.investment_needed)],
   ];
   for (const [label, value] of fields) {
     const p = document.createElement("p");
@@ -247,6 +250,71 @@ function openStartupModal(startup) {
     p.appendChild(document.createTextNode(String(value)));
     el.viewModalBody.appendChild(p);
   }
+
+  // Scores section with badges
+  const scoresDiv = document.createElement("div");
+  scoresDiv.style.margin = "0.75rem 0";
+  const scoresLabel = document.createElement("strong");
+  scoresLabel.textContent = "Scores: ";
+  scoresDiv.appendChild(scoresLabel);
+
+  const badgesContainer = document.createElement("span");
+  badgesContainer.className = "score-badges";
+  badgesContainer.style.display = "inline-flex";
+  badgesContainer.style.gap = "6px";
+  badgesContainer.style.marginLeft = "4px";
+
+  const scores = [
+    { label: "Total", value: startup.total_score ?? 0, cls: "total" },
+    { label: "Rule", value: startup.rule_score ?? 0, cls: "rule" },
+    { label: "AI", value: startup.ai_score ?? 0, cls: "ai" },
+  ];
+  for (const s of scores) {
+    const badge = document.createElement("span");
+    badge.className = `score-badge ${s.cls}`;
+    badge.textContent = `${s.label} ${s.value}`;
+    badgesContainer.appendChild(badge);
+  }
+  scoresDiv.appendChild(badgesContainer);
+  el.viewModalBody.appendChild(scoresDiv);
+
+  // Risk flags section
+  const riskDiv = document.createElement("div");
+  riskDiv.style.margin = "0.75rem 0";
+  const riskLabel = document.createElement("strong");
+  riskLabel.textContent = "Risk Flags: ";
+  riskDiv.appendChild(riskLabel);
+
+  const riskFlags = Array.isArray(startup.risk_flags) ? startup.risk_flags : [];
+  if (riskFlags.length > 0) {
+    const tagsContainer = document.createElement("span");
+    tagsContainer.className = "risk-tags";
+    tagsContainer.style.display = "inline-flex";
+    tagsContainer.style.marginLeft = "4px";
+    for (const flag of riskFlags) {
+      const tag = document.createElement("span");
+      tag.className = "risk-tag";
+      tag.textContent = flag;
+      tagsContainer.appendChild(tag);
+    }
+    riskDiv.appendChild(tagsContainer);
+  } else {
+    const noneSpan = document.createElement("span");
+    noneSpan.className = "risk-tag none";
+    noneSpan.textContent = "None";
+    noneSpan.style.marginLeft = "4px";
+    riskDiv.appendChild(noneSpan);
+  }
+  el.viewModalBody.appendChild(riskDiv);
+
+  // Idea section
+  const ideaP = document.createElement("p");
+  const ideaStrong = document.createElement("strong");
+  ideaStrong.textContent = "Idea: ";
+  ideaP.appendChild(ideaStrong);
+  ideaP.appendChild(document.createTextNode(startup.idea || ""));
+  el.viewModalBody.appendChild(ideaP);
+
   el.viewModal.classList.remove("hidden");
 }
 
@@ -284,7 +352,7 @@ function renderStartups() {
   if (!rows.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 6;
+    td.colSpan = 8;
     td.textContent = "No startups found";
     td.style.textAlign = "center";
     tr.appendChild(td);
@@ -295,26 +363,79 @@ function renderStartups() {
   for (const startup of rows) {
     const tr = document.createElement("tr");
 
+    // Name
     const tdName = document.createElement("td");
     tdName.textContent = startup.name || "";
     tr.appendChild(tdName);
 
+    // Industry
     const tdIndustry = document.createElement("td");
     tdIndustry.textContent = startup.industry || "";
     tr.appendChild(tdIndustry);
 
+    // Team Size (centered)
     const tdTeam = document.createElement("td");
+    tdTeam.className = "text-center";
     tdTeam.textContent = String(startup.team_size ?? "");
     tr.appendChild(tdTeam);
 
+    // Investment Needed (right-aligned)
+    const tdInvestment = document.createElement("td");
+    tdInvestment.className = "text-right";
+    tdInvestment.textContent = formatInvestment(startup.investment_needed);
+    tr.appendChild(tdInvestment);
+
+    // Scores as color-coded badges
     const tdScores = document.createElement("td");
-    tdScores.textContent = `T:${startup.total_score || 0} / R:${startup.rule_score || 0} / AI:${startup.ai_score || 0}`;
+    const badgesDiv = document.createElement("div");
+    badgesDiv.className = "score-badges";
+
+    const totalBadge = document.createElement("span");
+    totalBadge.className = "score-badge total";
+    totalBadge.textContent = `Total ${startup.total_score || 0}`;
+    badgesDiv.appendChild(totalBadge);
+
+    const ruleBadge = document.createElement("span");
+    ruleBadge.className = "score-badge rule";
+    ruleBadge.textContent = `Rule ${startup.rule_score || 0}`;
+    badgesDiv.appendChild(ruleBadge);
+
+    const aiBadge = document.createElement("span");
+    aiBadge.className = "score-badge ai";
+    aiBadge.textContent = `AI ${startup.ai_score || 0}`;
+    badgesDiv.appendChild(aiBadge);
+
+    tdScores.appendChild(badgesDiv);
     tr.appendChild(tdScores);
 
+    // Risk Flags as tag pills
+    const tdRisk = document.createElement("td");
+    const riskFlags = Array.isArray(startup.risk_flags) ? startup.risk_flags : [];
+    if (riskFlags.length > 0) {
+      const tagsDiv = document.createElement("div");
+      tagsDiv.className = "risk-tags";
+      for (const flag of riskFlags) {
+        const tag = document.createElement("span");
+        tag.className = "risk-tag";
+        tag.textContent = flag;
+        tagsDiv.appendChild(tag);
+      }
+      tdRisk.appendChild(tagsDiv);
+    } else {
+      const noneTag = document.createElement("span");
+      noneTag.className = "risk-tag none";
+      noneTag.textContent = "—";
+      tdRisk.appendChild(noneTag);
+    }
+    tr.appendChild(tdRisk);
+
+    // Stage (centered)
     const tdStage = document.createElement("td");
+    tdStage.className = "text-center";
     tdStage.textContent = startup.stage || "";
     tr.appendChild(tdStage);
 
+    // Actions
     const tdActions = document.createElement("td");
     tdActions.className = "table-actions";
 
