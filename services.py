@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 import requests
 
@@ -19,10 +20,37 @@ def clamp(value, min_value, max_value):
 
 
 def _to_int(value, default=0):
+    if isinstance(value, str):
+        match = re.search(r"-?\d+(\.\d+)?", value)
+        if match:
+            try:
+                return int(float(match.group(0)))
+            except (TypeError, ValueError):
+                pass
     try:
-        return int(value)
+        return int(float(value))
     except (TypeError, ValueError):
         return default
+
+
+def _score_from_text(value, default=5):
+    if not isinstance(value, str):
+        return default
+    text = value.strip().lower()
+    if not text:
+        return default
+
+    high_words = ["excellent", "very high", "strong", "clear", "clear need", "unique", "feasible", "logical"]
+    mid_words = ["moderate", "average", "medium", "somewhat", "partly"]
+    low_words = ["weak", "low", "unclear", "poor", "not feasible"]
+
+    if any(word in text for word in high_words):
+        return 8
+    if any(word in text for word in mid_words):
+        return 6
+    if any(word in text for word in low_words):
+        return 3
+    return default
 
 
 def rule_score_calc(startup):
@@ -91,11 +119,33 @@ def _sanitize_ai_result(parsed):
     if not isinstance(parsed, dict):
         return DEFAULT_AI_RESULT.copy()
 
+    score_block = parsed.get("scores")
+    if not isinstance(score_block, dict):
+        score_block = parsed.get("score_breakdown")
+    if not isinstance(score_block, dict):
+        score_block = {}
+
+    def pick_score(*keys):
+        for key in keys:
+            if key in parsed:
+                value = parsed.get(key, 0)
+                score = _to_int(value, None)
+                if score is None:
+                    score = _score_from_text(value, 5)
+                return clamp(score, 0, 10)
+            if key in score_block:
+                value = score_block.get(key, 0)
+                score = _to_int(value, None)
+                if score is None:
+                    score = _score_from_text(value, 5)
+                return clamp(score, 0, 10)
+        return 0
+
     result = {
-        "clarity": clamp(_to_int(parsed.get("clarity", 0), 0), 0, 10),
-        "feasibility": clamp(_to_int(parsed.get("feasibility", 0), 0), 0, 10),
-        "differentiation": clamp(_to_int(parsed.get("differentiation", 0), 0), 0, 10),
-        "market_logic": clamp(_to_int(parsed.get("market_logic", 0), 0), 0, 10),
+        "clarity": pick_score("clarity"),
+        "feasibility": pick_score("feasibility"),
+        "differentiation": pick_score("differentiation", "differentiate"),
+        "market_logic": pick_score("market_logic", "marketLogic", "market"),
         "risk_flags": [],
         "explanation": "AI unavailable",
     }
@@ -103,8 +153,10 @@ def _sanitize_ai_result(parsed):
     risk_flags = parsed.get("risk_flags", [])
     if isinstance(risk_flags, list):
         result["risk_flags"] = [str(item).strip() for item in risk_flags if str(item).strip()][:3]
+    elif isinstance(risk_flags, str) and risk_flags.strip():
+        result["risk_flags"] = [risk_flags.strip()[:120]]
 
-    explanation = parsed.get("explanation")
+    explanation = parsed.get("explanation") or parsed.get("summary")
     if isinstance(explanation, str) and explanation.strip():
         result["explanation"] = explanation.strip()
 
@@ -126,22 +178,23 @@ def call_gemini_score(idea, industry):
         f"Industry: {industry}\n"
     )
 
-    url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        "gemini-1.5-flash:generateContent"
-    )
+    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"},
     }
 
     try:
-        response = requests.post(
-            url,
-            params={"key": api_key},
-            json=payload,
-            timeout=(3, 5),
-        )
+        # Ignore broken system proxy settings for direct Gemini access.
+        with requests.Session() as session:
+            session.trust_env = False
+            response = session.post(
+                url,
+                params={"key": api_key},
+                json=payload,
+                timeout=(3, 5),
+            )
         response.raise_for_status()
         body = response.json()
         text = (

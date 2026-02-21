@@ -34,6 +34,7 @@ class Startup(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    name = db.Column(db.String(120), nullable=False, default="")
     idea = db.Column(db.Text, nullable=False)
     industry = db.Column(db.String(100), nullable=False, index=True)
     team_size = db.Column(db.Integer, nullable=False)
@@ -62,6 +63,7 @@ class Startup(db.Model):
         return {
             "id": self.id,
             "user_id": self.user_id,
+            "name": self.name,
             "idea": self.idea,
             "industry": self.industry,
             "team_size": self.team_size,

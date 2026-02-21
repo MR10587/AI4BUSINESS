@@ -3,29 +3,45 @@ const API_BASE = "http://127.0.0.1:5000";
 const state = {
   startups: [],
   sortByScore: false,
+  highRiskOnly: false,
+  startupsLoading: false,
 };
 
 const el = {
-  messages: document.getElementById("messages"),
-  loading: document.getElementById("loading"),
-  authSection: document.getElementById("authSection"),
-  dashboardSection: document.getElementById("dashboardSection"),
+  toastRoot: document.getElementById("toastRoot"),
+  userMeta: document.getElementById("userMeta"),
+  logoutBtn: document.getElementById("logoutBtn"),
+  authView: document.getElementById("authView"),
+  appView: document.getElementById("appView"),
   showLoginBtn: document.getElementById("showLoginBtn"),
   showRegisterBtn: document.getElementById("showRegisterBtn"),
   loginForm: document.getElementById("loginForm"),
   registerForm: document.getElementById("registerForm"),
-  currentUser: document.getElementById("currentUser"),
+  loginSubmitBtn: document.getElementById("loginSubmitBtn"),
+  registerSubmitBtn: document.getElementById("registerSubmitBtn"),
   startupsTabBtn: document.getElementById("startupsTabBtn"),
   kpiTabBtn: document.getElementById("kpiTabBtn"),
   refreshBtn: document.getElementById("refreshBtn"),
-  logoutBtn: document.getElementById("logoutBtn"),
-  startupsSection: document.getElementById("startupsSection"),
-  kpiSection: document.getElementById("kpiSection"),
+  startupsPanel: document.getElementById("startupsPanel"),
+  kpiPanel: document.getElementById("kpiPanel"),
+  createStartupCard: document.getElementById("createStartupCard"),
   createStartupForm: document.getElementById("createStartupForm"),
+  createStartupSubmitBtn: document.getElementById("createStartupSubmitBtn"),
   industryFilter: document.getElementById("industryFilter"),
   sortScoreBtn: document.getElementById("sortScoreBtn"),
+  riskFilterBtn: document.getElementById("riskFilterBtn"),
+  startupSkeleton: document.getElementById("startupSkeleton"),
   startupsTbody: document.getElementById("startupsTbody"),
-  kpiContent: document.getElementById("kpiContent"),
+  startupCards: document.getElementById("startupCards"),
+  startupDetailCard: document.getElementById("startupDetailCard"),
+  detailTitle: document.getElementById("detailTitle"),
+  detailMeta: document.getElementById("detailMeta"),
+  detailIdea: document.getElementById("detailIdea"),
+  kpiTotal: document.getElementById("kpiTotal"),
+  kpiAvg: document.getElementById("kpiAvg"),
+  kpiDist: document.getElementById("kpiDist"),
+  topIndustriesList: document.getElementById("topIndustriesList"),
+  recentActivityList: document.getElementById("recentActivityList"),
 };
 
 function getToken() {
@@ -42,28 +58,40 @@ function getUser() {
   }
 }
 
-function setMessage(text, kind = "error") {
-  el.messages.textContent = text || "";
-  el.messages.className = `messages ${text ? kind : ""}`.trim();
+function addToast(type, message) {
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  el.toastRoot.appendChild(toast);
+  setTimeout(() => {
+    if (toast.parentNode) toast.parentNode.removeChild(toast);
+  }, 3500);
 }
 
-function setLoading(isLoading) {
-  el.loading.classList.toggle("hidden", !isLoading);
+function setButtonLoading(button, isLoading) {
+  if (!button) return;
+  button.disabled = isLoading;
+  button.classList.toggle("loading", isLoading);
 }
 
-function logout(showMsg = true) {
+function setStartupsLoading(isLoading) {
+  state.startupsLoading = isLoading;
+  el.startupSkeleton.classList.toggle("hidden", !isLoading);
+}
+
+function logout(showToast = true) {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
   state.startups = [];
   renderApp();
-  if (showMsg) setMessage("Logged out", "success");
+  if (showToast) addToast("info", "Logged out");
 }
 
 async function api(path, { method = "GET", body, auth = true } = {}) {
   const headers = { "Content-Type": "application/json" };
-  if (auth && getToken()) headers.Authorization = `Bearer ${getToken()}`;
+  const token = getToken();
+  if (auth && token) headers.Authorization = `Bearer ${token}`;
 
-  setLoading(true);
   try {
     const res = await fetch(`${API_BASE}/api${path}`, {
       method,
@@ -71,7 +99,7 @@ async function api(path, { method = "GET", body, auth = true } = {}) {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    let data = null;
+    let data = {};
     try {
       data = await res.json();
     } catch {
@@ -79,35 +107,33 @@ async function api(path, { method = "GET", body, auth = true } = {}) {
     }
 
     if (!res.ok) {
-      const msg = data && (data.error || data.msg) ? (data.error || data.msg) : `Request failed (${res.status})`;
-      setMessage(msg, "error");
+      const msg = data.error || data.msg || `Request failed (${res.status})`;
+      addToast("error", msg);
       if (res.status === 401) logout(false);
       return null;
     }
 
     return data;
   } catch {
-    setMessage("Network error", "error");
+    addToast("error", "Network error");
     return null;
-  } finally {
-    setLoading(false);
   }
 }
 
 function toggleAuth(mode) {
-  const loginMode = mode === "login";
-  el.loginForm.classList.toggle("hidden", !loginMode);
-  el.registerForm.classList.toggle("hidden", loginMode);
-  el.showLoginBtn.classList.toggle("active", loginMode);
-  el.showRegisterBtn.classList.toggle("active", !loginMode);
+  const isLogin = mode === "login";
+  el.loginForm.classList.toggle("hidden", !isLogin);
+  el.registerForm.classList.toggle("hidden", isLogin);
+  el.showLoginBtn.classList.toggle("active", isLogin);
+  el.showRegisterBtn.classList.toggle("active", !isLogin);
 }
 
 function showTab(tab) {
-  const isKpi = tab === "kpi";
-  el.startupsSection.classList.toggle("hidden", isKpi);
-  el.kpiSection.classList.toggle("hidden", !isKpi);
-  el.startupsTabBtn.classList.toggle("active", !isKpi);
-  el.kpiTabBtn.classList.toggle("active", isKpi);
+  const kpi = tab === "kpi";
+  el.startupsPanel.classList.toggle("hidden", kpi);
+  el.kpiPanel.classList.toggle("hidden", !kpi);
+  el.startupsTabBtn.classList.toggle("active", !kpi);
+  el.kpiTabBtn.classList.toggle("active", kpi);
 }
 
 function startupCanScore(startup, user) {
@@ -124,105 +150,225 @@ function clearNode(node) {
   while (node.firstChild) node.removeChild(node.firstChild);
 }
 
-function textCell(row, value) {
-  const td = document.createElement("td");
-  td.textContent = value == null ? "" : String(value);
-  row.appendChild(td);
-  return td;
+function scoreClass(score) {
+  const n = Number(score || 0);
+  if (n >= 80) return "badge-success";
+  if (n >= 50) return "badge-mid";
+  return "badge-low";
 }
 
-function renderStartups() {
-  const user = getUser();
-  clearNode(el.startupsTbody);
+function createBadge(cls, text) {
+  const span = document.createElement("span");
+  span.className = `badge ${cls}`;
+  span.textContent = text;
+  return span;
+}
 
-  let rows = [...state.startups];
+function filteredStartups() {
   const filterText = el.industryFilter.value.trim().toLowerCase();
+  let rows = [...state.startups];
+
   if (filterText) {
     rows = rows.filter((s) => String(s.industry || "").toLowerCase().includes(filterText));
+  }
+
+  if (state.highRiskOnly) {
+    rows = rows.filter((s) => Array.isArray(s.risk_flags) && s.risk_flags.length > 0);
   }
 
   if (state.sortByScore) {
     rows.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
   }
 
+  return rows;
+}
+
+function renderScoreArea(startup) {
+  const wrap = document.createElement("div");
+  wrap.appendChild(createBadge(`badge-total ${scoreClass(startup.total_score)}`, `Total ${startup.total_score ?? 0}`));
+  wrap.appendChild(createBadge("badge-rule", `Rule ${startup.rule_score ?? 0}`));
+  wrap.appendChild(createBadge("badge-ai", `AI ${startup.ai_score ?? 0}`));
+  return wrap;
+}
+
+function renderRiskArea(startup) {
+  const wrap = document.createElement("div");
+  const flags = Array.isArray(startup.risk_flags) ? startup.risk_flags : [];
+  if (!flags.length) {
+    wrap.appendChild(createBadge("badge-low", "No flags"));
+    return wrap;
+  }
+  for (const f of flags) {
+    wrap.appendChild(createBadge("badge-risk", String(f)));
+  }
+  return wrap;
+}
+
+function showStartupDetail(startup) {
+  if (!startup) return;
+  el.startupDetailCard.classList.remove("hidden");
+  el.detailTitle.textContent = `${startup.name || "Unnamed Startup"} (#${startup.id})`;
+  el.detailMeta.textContent = `${startup.industry || "-"} | ${startup.stage || "-"} | team ${startup.team_size ?? "-"}`;
+  el.detailIdea.textContent = startup.idea || "-";
+}
+
+async function handleScoreClick(startupId, button) {
+  setButtonLoading(button, true);
+  const scored = await api(`/startups/${startupId}/score`, { method: "POST" });
+  setButtonLoading(button, false);
+  if (!scored) return;
+
+  const breakdown = scored.ai_breakdown || {};
+  addToast(
+    "success",
+    `Scored #${startupId}: AI ${scored.ai_score} (C:${breakdown.clarity ?? "-"}, F:${breakdown.feasibility ?? "-"}, D:${breakdown.differentiation ?? "-"}, M:${breakdown.market_logic ?? "-"})`
+  );
+  await loadStartups();
+}
+
+function renderStartups() {
+  clearNode(el.startupsTbody);
+  clearNode(el.startupCards);
+
+  if (state.startupsLoading) return;
+
+  const user = getUser();
+  const rows = filteredStartups();
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 10;
+    td.textContent = "No startups found.";
+    tr.appendChild(td);
+    el.startupsTbody.appendChild(tr);
+  }
+
   for (const startup of rows) {
     const tr = document.createElement("tr");
-    textCell(tr, startup.id);
-    textCell(tr, startup.industry);
-    textCell(tr, startup.stage);
-    textCell(tr, startup.team_size);
-    textCell(tr, startup.investment_needed);
-    textCell(tr, startup.total_score);
-    textCell(tr, startup.rule_score);
-    textCell(tr, startup.ai_score);
-    textCell(tr, Array.isArray(startup.risk_flags) ? startup.risk_flags.join(", ") : "");
-    textCell(tr, startup.created_at);
+    const fields = [
+      startup.id,
+      startup.name,
+      startup.industry,
+      startup.stage,
+      startup.team_size,
+      startup.investment_needed,
+    ];
+
+    for (const value of fields) {
+      const td = document.createElement("td");
+      td.textContent = value == null ? "" : String(value);
+      tr.appendChild(td);
+    }
+
+    const tdScores = document.createElement("td");
+    tdScores.appendChild(renderScoreArea(startup));
+    tr.appendChild(tdScores);
+
+    const tdRisk = document.createElement("td");
+    tdRisk.appendChild(renderRiskArea(startup));
+    tr.appendChild(tdRisk);
+
+    const tdCreated = document.createElement("td");
+    tdCreated.textContent = startup.created_at || "";
+    tr.appendChild(tdCreated);
 
     const actionTd = document.createElement("td");
     if (startupCanScore(startup, user)) {
       const btn = document.createElement("button");
-      btn.className = "btn";
+      btn.className = "btn btn-secondary";
       btn.type = "button";
       btn.textContent = "Score";
-      btn.addEventListener("click", async () => {
-        const scored = await api(`/startups/${startup.id}/score`, { method: "POST" });
-        if (scored) {
-          setMessage(`Startup ${startup.id} scored`, "success");
-          await loadStartups();
-        }
-      });
+      btn.addEventListener("click", () => handleScoreClick(startup.id, btn));
       actionTd.appendChild(btn);
+    } else {
+      actionTd.textContent = "-";
     }
     tr.appendChild(actionTd);
-
+    tr.classList.add("row-clickable");
+    tr.addEventListener("click", (event) => {
+      if (event.target.tagName === "BUTTON") return;
+      showStartupDetail(startup);
+    });
     el.startupsTbody.appendChild(tr);
+
+    const card = document.createElement("article");
+    card.className = "startup-card";
+    card.addEventListener("click", () => showStartupDetail(startup));
+
+    const title = document.createElement("h4");
+    title.textContent = `#${startup.id} ${startup.name || "Unnamed Startup"}`;
+    card.appendChild(title);
+
+    const meta = document.createElement("p");
+    meta.className = "startup-meta";
+    meta.textContent = `${startup.industry || "-"} | ${startup.stage || "-"} | team ${startup.team_size ?? "-"} | created ${startup.created_at || "-"}`;
+    card.appendChild(meta);
+
+    const row1 = document.createElement("div");
+    row1.className = "startup-row";
+    row1.textContent = `Investment: ${startup.investment_needed ?? 0}`;
+    card.appendChild(row1);
+
+    card.appendChild(renderScoreArea(startup));
+    card.appendChild(renderRiskArea(startup));
+
+    if (startupCanScore(startup, user)) {
+      const scoreBtn = document.createElement("button");
+      scoreBtn.className = "btn btn-primary";
+      scoreBtn.type = "button";
+      scoreBtn.style.marginTop = "12px";
+      scoreBtn.textContent = "Score";
+      scoreBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        handleScoreClick(startup.id, scoreBtn);
+      });
+      card.appendChild(scoreBtn);
+    }
+
+    el.startupCards.appendChild(card);
   }
 }
 
-function renderKpi(kpi) {
-  clearNode(el.kpiContent);
-  if (!kpi) return;
+function renderKpi(data) {
+  el.kpiTotal.textContent = String(data.total_startups ?? 0);
+  el.kpiAvg.textContent = String(data.avg_total_score ?? 0);
+  const d = data.score_distribution || {};
+  el.kpiDist.textContent = `0-39: ${d["0_39"] ?? 0} | 40-59: ${d["40_59"] ?? 0} | 60-79: ${d["60_79"] ?? 0} | 80-100: ${d["80_100"] ?? 0}`;
 
-  const stats = document.createElement("div");
-  stats.className = "small";
-  stats.textContent = `total_startups: ${kpi.total_startups} | avg_total_score: ${kpi.avg_total_score}`;
-  el.kpiContent.appendChild(stats);
-
-  const topTitle = document.createElement("h3");
-  topTitle.textContent = "Top industries";
-  el.kpiContent.appendChild(topTitle);
-  const topList = document.createElement("ul");
-  topList.className = "list";
-  for (const item of kpi.top_industries || []) {
+  clearNode(el.topIndustriesList);
+  const top = Array.isArray(data.top_industries) ? data.top_industries : [];
+  if (!top.length) {
     const li = document.createElement("li");
-    li.textContent = `${item.industry}: ${item.count}`;
-    topList.appendChild(li);
+    li.textContent = "No data";
+    el.topIndustriesList.appendChild(li);
+  } else {
+    for (const item of top) {
+      const li = document.createElement("li");
+      li.textContent = `${item.industry}: ${item.count}`;
+      el.topIndustriesList.appendChild(li);
+    }
   }
-  el.kpiContent.appendChild(topList);
 
-  const distTitle = document.createElement("h3");
-  distTitle.textContent = "Score distribution";
-  el.kpiContent.appendChild(distTitle);
-  const dist = document.createElement("div");
-  const d = kpi.score_distribution || {};
-  dist.textContent = `0_39=${d["0_39"] || 0}, 40_59=${d["40_59"] || 0}, 60_79=${d["60_79"] || 0}, 80_100=${d["80_100"] || 0}`;
-  el.kpiContent.appendChild(dist);
-
-  const activityTitle = document.createElement("h3");
-  activityTitle.textContent = "Recent activity";
-  el.kpiContent.appendChild(activityTitle);
-  const activity = document.createElement("ul");
-  activity.className = "list";
-  for (const row of kpi.recent_activity || []) {
+  clearNode(el.recentActivityList);
+  const recent = Array.isArray(data.recent_activity) ? data.recent_activity : [];
+  if (!recent.length) {
     const li = document.createElement("li");
-    li.textContent = `${row.created_at} | user:${row.user_id} | ${row.action}`;
-    activity.appendChild(li);
+    li.textContent = "No recent activity";
+    el.recentActivityList.appendChild(li);
+  } else {
+    for (const item of recent) {
+      const li = document.createElement("li");
+      li.textContent = `${item.created_at || "-"} | user:${item.user_id ?? "-"} | ${item.action || ""}`;
+      el.recentActivityList.appendChild(li);
+    }
   }
-  el.kpiContent.appendChild(activity);
 }
 
 async function loadStartups() {
+  setStartupsLoading(true);
+  renderStartups();
   const data = await api("/startups");
+  setStartupsLoading(false);
   if (!data) return;
   state.startups = Array.isArray(data) ? data : [];
   renderStartups();
@@ -238,18 +384,20 @@ function renderApp() {
   const user = getUser();
   const loggedIn = Boolean(getToken() && user);
 
-  el.authSection.classList.toggle("hidden", loggedIn);
-  el.dashboardSection.classList.toggle("hidden", !loggedIn);
+  el.authView.classList.toggle("hidden", loggedIn);
+  el.appView.classList.toggle("hidden", !loggedIn);
+  el.logoutBtn.classList.toggle("hidden", !loggedIn);
+  el.userMeta.classList.toggle("hidden", !loggedIn);
 
   if (!loggedIn) {
     toggleAuth("login");
-    showTab("startups");
     return;
   }
 
-  el.currentUser.textContent = `${user.email} (${user.role})`;
-  el.createStartupForm.classList.toggle("hidden", user.role !== "startup");
-  el.kpiTabBtn.classList.toggle("hidden", user.role !== "admin");
+  el.userMeta.textContent = `${user.email} (${user.role})`;
+  const isAdmin = user.role === "admin";
+  el.kpiTabBtn.classList.toggle("hidden", !isAdmin);
+  el.createStartupCard.classList.toggle("hidden", user.role !== "startup");
 
   showTab("startups");
   loadStartups();
@@ -258,9 +406,9 @@ function renderApp() {
 el.showLoginBtn.addEventListener("click", () => toggleAuth("login"));
 el.showRegisterBtn.addEventListener("click", () => toggleAuth("register"));
 
-el.loginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  setMessage("");
+el.loginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setButtonLoading(el.loginSubmitBtn, true);
   const data = await api("/login", {
     method: "POST",
     auth: false,
@@ -269,17 +417,18 @@ el.loginForm.addEventListener("submit", async (e) => {
       password: document.getElementById("loginPassword").value,
     },
   });
+  setButtonLoading(el.loginSubmitBtn, false);
   if (!data) return;
 
   localStorage.setItem("token", data.access_token);
   localStorage.setItem("user", JSON.stringify(data.user));
-  setMessage("Login successful", "success");
+  addToast("success", "Login successful");
   renderApp();
 });
 
-el.registerForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  setMessage("");
+el.registerForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setButtonLoading(el.registerSubmitBtn, true);
   const data = await api("/register", {
     method: "POST",
     auth: false,
@@ -290,44 +439,52 @@ el.registerForm.addEventListener("submit", async (e) => {
       role: document.getElementById("registerRole").value,
     },
   });
+  setButtonLoading(el.registerSubmitBtn, false);
   if (!data) return;
 
-  setMessage("Registration successful. Please login.", "success");
   el.registerForm.reset();
   toggleAuth("login");
+  addToast("success", "Registration successful. Please login.");
 });
 
 el.logoutBtn.addEventListener("click", () => logout(true));
 
-el.refreshBtn.addEventListener("click", async () => {
-  setMessage("");
-  await loadStartups();
-  if (!el.kpiSection.classList.contains("hidden")) await loadKpi();
+el.startupsTabBtn.addEventListener("click", () => {
+  showTab("startups");
 });
 
-el.startupsTabBtn.addEventListener("click", () => showTab("startups"));
 el.kpiTabBtn.addEventListener("click", async () => {
   showTab("kpi");
   await loadKpi();
 });
 
-el.createStartupForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
+el.refreshBtn.addEventListener("click", async () => {
+  setButtonLoading(el.refreshBtn, true);
+  await loadStartups();
+  if (!el.kpiPanel.classList.contains("hidden")) await loadKpi();
+  setButtonLoading(el.refreshBtn, false);
+  addToast("info", "Data refreshed");
+});
+
+el.createStartupForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setButtonLoading(el.createStartupSubmitBtn, true);
   const data = await api("/startups", {
     method: "POST",
     body: {
+      name: document.getElementById("startupName").value.trim(),
       idea: document.getElementById("idea").value.trim(),
       industry: document.getElementById("industry").value.trim(),
       team_size: Number(document.getElementById("teamSize").value),
       investment_needed: Number(document.getElementById("investmentNeeded").value),
-      market_impact: Number(document.getElementById("marketImpact").value),
       stage: document.getElementById("stage").value,
     },
   });
+  setButtonLoading(el.createStartupSubmitBtn, false);
   if (!data) return;
 
-  setMessage("Startup created", "success");
   el.createStartupForm.reset();
+  addToast("success", "Startup created");
   await loadStartups();
 });
 
@@ -335,7 +492,13 @@ el.industryFilter.addEventListener("input", renderStartups);
 
 el.sortScoreBtn.addEventListener("click", () => {
   state.sortByScore = !state.sortByScore;
-  el.sortScoreBtn.textContent = `Sort total_score: ${state.sortByScore ? "ON" : "OFF"}`;
+  el.sortScoreBtn.textContent = `Sort total score: ${state.sortByScore ? "ON" : "OFF"}`;
+  renderStartups();
+});
+
+el.riskFilterBtn.addEventListener("click", () => {
+  state.highRiskOnly = !state.highRiskOnly;
+  el.riskFilterBtn.textContent = `High risk only: ${state.highRiskOnly ? "ON" : "OFF"}`;
   renderStartups();
 });
 

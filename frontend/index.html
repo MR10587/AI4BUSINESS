@@ -3,115 +3,170 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI4BUSINESS Dashboard</title>
+  <title>AI4Business</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="toastRoot" class="toast-root" aria-live="polite"></div>
+
+  <header class="navbar">
+    <div class="brand">AI4Business</div>
+    <div class="nav-right">
+      <div id="userMeta" class="user-meta hidden"></div>
+      <button id="logoutBtn" class="btn btn-danger hidden" type="button">Logout</button>
+    </div>
+  </header>
+
   <main class="container">
-    <h1>AI4BUSINESS</h1>
-
-    <section id="messages" class="messages" aria-live="polite"></section>
-    <div id="loading" class="loading hidden">Loading...</div>
-
-    <section id="authSection" class="card">
-      <div class="auth-toggle">
-        <button id="showLoginBtn" class="btn active" type="button">Login</button>
-        <button id="showRegisterBtn" class="btn" type="button">Register</button>
-      </div>
-
-      <form id="loginForm" class="form">
-        <h2>Login</h2>
-        <label>Email</label>
-        <input id="loginEmail" type="email" required />
-        <label>Password</label>
-        <input id="loginPassword" type="password" required />
-        <button class="btn primary" type="submit">Login</button>
-      </form>
-
-      <form id="registerForm" class="form hidden">
-        <h2>Register</h2>
-        <label>Name</label>
-        <input id="registerName" type="text" required />
-        <label>Email</label>
-        <input id="registerEmail" type="email" required />
-        <label>Password</label>
-        <input id="registerPassword" type="password" required />
-        <label>Role</label>
-        <select id="registerRole" required>
-          <option value="startup">startup</option>
-          <option value="investor">investor</option>
-          <option value="admin">admin</option>
-        </select>
-        <button class="btn primary" type="submit">Create account</button>
-      </form>
-    </section>
-
-    <section id="dashboardSection" class="hidden">
-      <div class="card topbar">
-        <div id="currentUser"></div>
-        <div class="actions">
-          <button id="startupsTabBtn" class="btn active" type="button">Startups</button>
-          <button id="kpiTabBtn" class="btn hidden" type="button">KPI</button>
-          <button id="refreshBtn" class="btn" type="button">Refresh</button>
-          <button id="logoutBtn" class="btn danger" type="button">Logout</button>
+    <section id="authView" class="auth-view">
+      <div class="auth-card card">
+        <div class="auth-tabs">
+          <button id="showLoginBtn" class="btn btn-tab active" type="button">Login</button>
+          <button id="showRegisterBtn" class="btn btn-tab" type="button">Register</button>
         </div>
-      </div>
 
-      <section id="startupsSection" class="card">
-        <h2>Startups</h2>
-
-        <form id="createStartupForm" class="form hidden">
-          <h3>Create Startup</h3>
-          <label>Idea</label>
-          <textarea id="idea" rows="3" required></textarea>
-          <label>Industry</label>
-          <input id="industry" type="text" required />
-          <label>Team size</label>
-          <input id="teamSize" type="number" min="1" required />
-          <label>Investment needed</label>
-          <input id="investmentNeeded" type="number" min="0" required />
-          <label>Market impact (1-10)</label>
-          <input id="marketImpact" type="number" min="1" max="10" required />
-          <label>Stage</label>
-          <select id="stage" required>
-            <option value="idea">idea</option>
-            <option value="mvp">mvp</option>
-            <option value="growth">growth</option>
-            <option value="scale">scale</option>
-          </select>
-          <button class="btn primary" type="submit">Create</button>
+        <form id="loginForm" class="form">
+          <h2>Welcome Back</h2>
+          <p class="muted">Log in to manage startups and scoring.</p>
+          <label for="loginEmail">Email</label>
+          <input id="loginEmail" type="email" autocomplete="email" required />
+          <small class="hint">Use the same email used during registration.</small>
+          <label for="loginPassword">Password</label>
+          <input id="loginPassword" type="password" autocomplete="current-password" required />
+          <button id="loginSubmitBtn" class="btn btn-primary" type="submit">Login</button>
         </form>
 
-        <div class="filters">
-          <input id="industryFilter" type="text" placeholder="Search industry..." />
-          <button id="sortScoreBtn" class="btn" type="button">Sort total_score: OFF</button>
+        <form id="registerForm" class="form hidden">
+          <h2>Create Account</h2>
+          <p class="muted">Register as startup or investor.</p>
+          <label for="registerName">Name</label>
+          <input id="registerName" type="text" autocomplete="name" required />
+          <small class="hint">At least 2 characters recommended.</small>
+          <label for="registerEmail">Email</label>
+          <input id="registerEmail" type="email" autocomplete="email" required />
+          <label for="registerPassword">Password</label>
+          <input id="registerPassword" type="password" autocomplete="new-password" required />
+          <small class="hint">Use a strong password for demo safety.</small>
+          <label for="registerRole">Role</label>
+          <select id="registerRole" required>
+            <option value="startup">startup</option>
+            <option value="investor">investor</option>
+          </select>
+          <button id="registerSubmitBtn" class="btn btn-primary" type="submit">Create account</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="appView" class="app-view hidden">
+      <div class="toolbar card">
+        <div class="tabs">
+          <button id="startupsTabBtn" class="btn btn-tab active" type="button">Startups</button>
+          <button id="kpiTabBtn" class="btn btn-tab hidden" type="button">KPI</button>
+        </div>
+        <button id="refreshBtn" class="btn btn-secondary" type="button">Refresh</button>
+      </div>
+
+      <section id="startupsPanel" class="panel">
+        <div id="createStartupCard" class="card hidden">
+          <h3>Create Startup</h3>
+          <form id="createStartupForm" class="form">
+            <label for="startupName">Startup name</label>
+            <input id="startupName" type="text" required />
+            <label for="idea">Idea</label>
+            <textarea id="idea" rows="3" required></textarea>
+            <label for="industry">Industry</label>
+            <input id="industry" type="text" required />
+            <div class="grid-2">
+              <div>
+                <label for="teamSize">Team size</label>
+                <input id="teamSize" type="number" min="1" required />
+              </div>
+              <div>
+                <label for="investmentNeeded">Investment needed</label>
+                <input id="investmentNeeded" type="number" min="0" required />
+              </div>
+            </div>
+            <label for="stage">Stage</label>
+            <select id="stage" required>
+              <option value="idea">idea</option>
+              <option value="mvp">mvp</option>
+              <option value="growth">growth</option>
+              <option value="scale">scale</option>
+            </select>
+            <button id="createStartupSubmitBtn" class="btn btn-primary" type="submit">Create startup</button>
+          </form>
         </div>
 
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>id</th>
-                <th>industry</th>
-                <th>stage</th>
-                <th>team_size</th>
-                <th>investment_needed</th>
-                <th>total_score</th>
-                <th>rule_score</th>
-                <th>ai_score</th>
-                <th>risk_flags</th>
-                <th>created_at</th>
-                <th>action</th>
-              </tr>
-            </thead>
-            <tbody id="startupsTbody"></tbody>
-          </table>
+        <div class="card">
+          <div class="filters">
+            <input id="industryFilter" type="text" placeholder="Search by industry..." />
+            <button id="sortScoreBtn" class="btn btn-secondary" type="button">Sort total score: OFF</button>
+            <button id="riskFilterBtn" class="btn btn-secondary" type="button">High risk only: OFF</button>
+          </div>
+
+          <div id="startupSkeleton" class="skeleton-wrap hidden">
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>id</th>
+                  <th>name</th>
+                  <th>industry</th>
+                  <th>stage</th>
+                  <th>team_size</th>
+                  <th>investment_needed</th>
+                  <th>scores</th>
+                  <th>risk_flags</th>
+                  <th>created_at</th>
+                  <th>action</th>
+                </tr>
+              </thead>
+              <tbody id="startupsTbody"></tbody>
+            </table>
+          </div>
+
+          <div id="startupCards" class="startup-cards"></div>
+        </div>
+
+        <div id="startupDetailCard" class="card hidden">
+          <h3 id="detailTitle">Startup Detail</h3>
+          <p id="detailMeta" class="muted"></p>
+          <h4>Idea</h4>
+          <p id="detailIdea"></p>
         </div>
       </section>
 
-      <section id="kpiSection" class="card hidden">
-        <h2>Admin KPI</h2>
-        <div id="kpiContent"></div>
+      <section id="kpiPanel" class="panel hidden">
+        <div class="kpi-grid">
+          <div class="kpi-card card">
+            <h4>Total Startups</h4>
+            <p id="kpiTotal" class="kpi-value">-</p>
+          </div>
+          <div class="kpi-card card">
+            <h4>Average Score</h4>
+            <p id="kpiAvg" class="kpi-value">-</p>
+          </div>
+          <div class="kpi-card card">
+            <h4>Distribution</h4>
+            <p id="kpiDist" class="kpi-small">-</p>
+          </div>
+        </div>
+
+        <div class="kpi-columns">
+          <div class="card">
+            <h4>Top Industries</h4>
+            <ul id="topIndustriesList" class="clean-list"></ul>
+          </div>
+          <div class="card">
+            <h4>Recent Activity</h4>
+            <ul id="recentActivityList" class="timeline"></ul>
+          </div>
+        </div>
       </section>
     </section>
   </main>
