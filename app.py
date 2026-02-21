@@ -6,8 +6,10 @@ from dotenv import load_dotenv
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_bcrypt import Bcrypt
 from sqlalchemy import func
-from models import db, User, Startup, AuditLog  # noqa: F401
+from models import db, User, Startup, AuditLog
 from services import rule_score_calc, call_gemini_score
+from flask_cors import CORS
+
 
 load_dotenv()
 
@@ -18,6 +20,7 @@ app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "change-me")
 db.init_app(app)
 jwt = JWTManager(app)
 bcrypt = Bcrypt(app)
+CORS(app)
 
 
 def get_json_body():
