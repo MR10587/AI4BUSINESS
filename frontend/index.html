@@ -163,6 +163,74 @@
         </div>
     </section>
 
+    <!-- Contact Section -->
+    <section id="contact" class="contact">
+        <div class="contact-container">
+            <h2 class="section-title">Get in Touch</h2>
+            <div class="contact-content">
+                <form class="contact-form" onsubmit="handleContactSubmit(event)">
+                    <h3>Send us a Message</h3>
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" placeholder="Your name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" placeholder="your@email.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Subject</label>
+                        <input type="text" placeholder="How can we help?" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Message</label>
+                        <textarea placeholder="Your message..." rows="5" required></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary">Send Message</button>
+                </form>
+
+                <div class="contact-info">
+                    <h3>Contact Information</h3>
+                    <div class="info-block">
+                        <div class="info-item">
+                            <div class="info-icon">📧</div>
+                            <div>
+                                <h4>Email</h4>
+                                <p>info@ai4business.com</p>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-icon">📱</div>
+                            <div>
+                                <h4>Phone</h4>
+                                <p>+994 (12) 123-45-67</p>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-icon">📍</div>
+                            <div>
+                                <h4>Office</h4>
+                                <p>Baku, Azerbaijan</p>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-icon">🕐</div>
+                            <div>
+                                <h4>Working Hours</h4>
+                                <p>Mon - Fri: 9:00 AM - 6:00 PM</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="social-links">
+                        <a href="#" class="social-link">LinkedIn</a>
+                        <a href="#" class="social-link">Twitter</a>
+                        <a href="#" class="social-link">Facebook</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Login Modal -->
     <div id="loginModal" class="modal">
         <div class="modal-content">
@@ -171,37 +239,66 @@
             <form onsubmit="handleLogin(event)">
                 <div class="form-group">
                     <label>Email</label>
-                    <input type="email" required>
+                    <input type="email" id="loginEmail" required>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" required>
+                    <input type="password" id="loginPassword" required>
                 </div>
                 <button type="submit" class="btn-primary">Sign In</button>
+                <p class="auth-link">Don't have an account? <a href="#" onclick="switchToSignup(event)">Register here</a></p>
             </form>
+            <div id="loginMessage" class="message-box"></div>
         </div>
     </div>
 
     <!-- Signup Modal -->
     <div id="signupModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-large">
             <span class="close" onclick="closeSignupModal()">&times;</span>
             <h2>Create Account</h2>
             <form onsubmit="handleSignup(event)">
                 <div class="form-group">
                     <label>Full Name</label>
-                    <input type="text" required>
+                    <input type="text" id="signupName" required>
                 </div>
                 <div class="form-group">
                     <label>Email</label>
-                    <input type="email" required>
+                    <input type="email" id="signupEmail" required>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" required>
+                    <input type="password" id="signupPassword" required>
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <input type="password" id="signupConfirmPassword" required>
+                </div>
+                <div class="form-group">
+                    <label>I am a:</label>
+                    <div class="role-selector">
+                        <div class="role-option">
+                            <input type="radio" name="role" value="startup" id="role-startup" checked>
+                            <label for="role-startup" class="role-label">
+                                <span class="role-icon">🚀</span>
+                                <span class="role-name">Startup Founder</span>
+                                <span class="role-desc">Launch and manage your startup</span>
+                            </label>
+                        </div>
+                        <div class="role-option">
+                            <input type="radio" name="role" value="investor" id="role-investor">
+                            <label for="role-investor" class="role-label">
+                                <span class="role-icon">💰</span>
+                                <span class="role-name">Investor</span>
+                                <span class="role-desc">Discover and invest in startups</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 <button type="submit" class="btn-primary">Create Account</button>
+                <p class="auth-link">Already have an account? <a href="#" onclick="switchToLogin(event)">Sign in here</a></p>
             </form>
+            <div id="signupMessage" class="message-box"></div>
         </div>
     </div>
 
@@ -209,28 +306,30 @@
     <div id="dashboard" class="dashboard" style="display: none;">
         <nav class="dashboard-nav">
             <div class="dashboard-logo">AI4BUSINESS</div>
+            <div class="user-info" id="userInfo"></div>
             <ul class="dashboard-menu">
-                <li><a href="#" onclick="showDashboardSection('overview')" class="menu-link active">Dashboard</a></li>
-                <li><a href="#" onclick="showDashboardSection('analytics')" class="menu-link">Analytics</a></li>
-                <li><a href="#" onclick="showDashboardSection('reports')" class="menu-link">Reports</a></li>
-                <li><a href="#" onclick="showDashboardSection('settings')" class="menu-link">Settings</a></li>
+                <li><a href="#" onclick="showDashboardSection('overview')" class="menu-link active">📊 Dashboard</a></li>
+                <li><a href="#" onclick="showDashboardSection('startups')" class="menu-link">🚀 Startups</a></li>
+                <li><a href="#" onclick="showDashboardSection('analytics')" class="menu-link">📈 Analytics</a></li>
+                <li><a href="#" onclick="showDashboardSection('settings')" class="menu-link">⚙️ Settings</a></li>
             </ul>
             <button class="btn-logout" onclick="handleLogout()">Logout</button>
         </nav>
 
         <div class="dashboard-main">
+            <!-- Overview Section -->
             <div id="overview" class="section active">
                 <h1>Welcome to Dashboard</h1>
                 <div class="dashboard-grid">
                     <div class="dashboard-card">
                         <div class="card-header">Total Score</div>
-                        <div class="card-value">94.5</div>
-                        <div class="card-change">+2.3% from last week</div>
+                        <div class="card-value" id="scoreValue">--</div>
+                        <div class="card-change">AI-powered rating</div>
                     </div>
                     <div class="dashboard-card">
-                        <div class="card-header">Active Projects</div>
-                        <div class="card-value">12</div>
-                        <div class="card-change">3 new this month</div>
+                        <div class="card-header">Active Startups</div>
+                        <div class="card-value" id="startupsCount">--</div>
+                        <div class="card-change">in portfolio</div>
                     </div>
                     <div class="dashboard-card">
                         <div class="card-header">Processing Time</div>
@@ -245,6 +344,13 @@
                 </div>
             </div>
 
+            <!-- Startups Section -->
+            <div id="startups" class="section">
+                <h1>Startups</h1>
+                <div id="startupsContent"></div>
+            </div>
+
+            <!-- Analytics Section -->
             <div id="analytics" class="section">
                 <h1>Analytics</h1>
                 <div class="analytics-container">
@@ -252,34 +358,23 @@
                 </div>
             </div>
 
-            <div id="reports" class="section">
-                <h1>Reports</h1>
-                <div class="reports-list">
-                    <div class="report-item">
-                        <h3>Monthly Performance Report</h3>
-                        <p>Generated on Feb 21, 2026</p>
-                        <button class="btn-small">Download</button>
-                    </div>
-                    <div class="report-item">
-                        <h3>Quarterly Analysis</h3>
-                        <p>Generated on Feb 15, 2026</p>
-                        <button class="btn-small">Download</button>
-                    </div>
-                </div>
-            </div>
-
+            <!-- Settings Section -->
             <div id="settings" class="section">
                 <h1>Settings</h1>
                 <div class="settings-form">
                     <div class="form-group">
-                        <label>Company Name</label>
-                        <input type="text" value="Your Company">
+                        <label>Your Email</label>
+                        <input type="email" id="settingsEmail" readonly>
                     </div>
                     <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" value="user@example.com">
+                        <label>Full Name</label>
+                        <input type="text" id="settingsName">
                     </div>
-                    <button class="btn-primary">Save Changes</button>
+                    <div class="form-group">
+                        <label>Your Role</label>
+                        <input type="text" id="settingsRole" readonly>
+                    </div>
+                    <button class="btn-primary" onclick="saveSettings()">Save Changes</button>
                 </div>
             </div>
         </div>
