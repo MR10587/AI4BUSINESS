@@ -97,6 +97,12 @@ def ensure_schema():
     if "name" not in col_names:
         db.session.execute(text("ALTER TABLE startups ADD COLUMN name VARCHAR(120) NOT NULL DEFAULT ''"))
         db.session.commit()
+    if "contact_email" not in col_names:
+        db.session.execute(text("ALTER TABLE startups ADD COLUMN contact_email VARCHAR(120) NOT NULL DEFAULT ''"))
+        db.session.commit()
+    if "contact_phone" not in col_names:
+        db.session.execute(text("ALTER TABLE startups ADD COLUMN contact_phone VARCHAR(40) NOT NULL DEFAULT ''"))
+        db.session.commit()
 
 
 with app.app_context():
@@ -204,6 +210,9 @@ def create_startup():
         return jsonify({"error": "Missing data"}), 400
     if not str(data.get("name", "")).strip():
         return jsonify({"error": "Missing data"}), 400
+    contact_email = str(data.get("contact_email", "")).strip()
+    if contact_email and "@" not in contact_email:
+        return jsonify({"error": "Invalid contact_email"}), 400
 
     team_size, err = parse_int(data.get("team_size"), "team_size")
     if err:
@@ -221,6 +230,9 @@ def create_startup():
     startup = Startup(
         user_id=user.id,
         name=str(data["name"]).strip(),
+        contact_name=str(data.get("contact_name", "")).strip(),
+        contact_email=contact_email,
+        contact_phone=str(data.get("contact_phone", "")).strip(),
         idea=data["idea"],
         industry=data["industry"],
         team_size=team_size,
@@ -293,6 +305,9 @@ def update_startup(startup_id):
         return jsonify({"error": "Missing data"}), 400
     for field in [
         "name",
+        "contact_name",
+        "contact_email",
+        "contact_phone",
         "idea",
         "industry",
         "team_size",
@@ -300,6 +315,12 @@ def update_startup(startup_id):
         "stage",
     ]:
         if field in data:
+            if field == "contact_email":
+                value = str(data.get(field, "")).strip()
+                if value and "@" not in value:
+                    return jsonify({"error": "Invalid contact_email"}), 400
+                setattr(startup, field, value)
+                continue
             if field == "team_size":
                 parsed, err = parse_int(data.get(field), "team_size")
                 if err:
