@@ -419,6 +419,7 @@ textarea {
 .col-risk       { width: 22%; }
 .col-stage      { width: 7%;  text-align: center; }
 .col-contact    { width: 23%; }
+.col-action     { width: 8%;  text-align: center; }
 
 td.text-center { text-align: center; }
 td.text-right  { text-align: right; }

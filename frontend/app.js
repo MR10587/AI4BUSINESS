@@ -218,11 +218,12 @@ function renderStartups() {
   clearNode(el.startupCards);
   const rows = filteredStartups();
   const user = getUser();
+  const canScore = user && (user.role === "startup" || user.role === "admin");
 
   if (!rows.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 8;
+    td.colSpan = 9;
     td.textContent = "No startups found";
     td.style.textAlign = "center";
     tr.appendChild(td);
@@ -247,6 +248,31 @@ function renderStartups() {
       td.textContent = value;
       tr.appendChild(td);
     }
+
+    const actionTd = document.createElement("td");
+    actionTd.className = "text-center";
+    if (canScore) {
+      const scoreBtn = document.createElement("button");
+      scoreBtn.className = "btn btn-primary btn-sm";
+      scoreBtn.type = "button";
+      scoreBtn.textContent = "Score";
+      scoreBtn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setButtonLoading(scoreBtn, true);
+        const scored = await api(`/startups/${startup.id}/score`, { method: "POST" });
+        setButtonLoading(scoreBtn, false);
+        if (scored) {
+          addToast("success", `Startup #${startup.id} scored`);
+          await loadStartups();
+        }
+      });
+      actionTd.appendChild(scoreBtn);
+    } else {
+      actionTd.textContent = "-";
+    }
+    tr.appendChild(actionTd);
+
     tr.addEventListener("click", () => openStartupModal(startup));
     el.startupsTbody.appendChild(tr);
 
@@ -268,6 +294,24 @@ function renderStartups() {
     viewBtn.type = "button";
     viewBtn.addEventListener("click", () => openStartupModal(startup));
     card.appendChild(viewBtn);
+
+    if (canScore) {
+      const scoreBtn = document.createElement("button");
+      scoreBtn.className = "btn btn-primary btn-sm";
+      scoreBtn.textContent = "Score";
+      scoreBtn.type = "button";
+      scoreBtn.addEventListener("click", async () => {
+        setButtonLoading(scoreBtn, true);
+        const scored = await api(`/startups/${startup.id}/score`, { method: "POST" });
+        setButtonLoading(scoreBtn, false);
+        if (scored) {
+          addToast("success", `Startup #${startup.id} scored`);
+          await loadStartups();
+        }
+      });
+      card.appendChild(scoreBtn);
+    }
+
     el.startupCards.appendChild(card);
   }
 }
