@@ -85,6 +85,13 @@ def parse_float(value, field_name):
         return None, f"Invalid {field_name}"
 
 
+def to_int_safe(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def require_admin_user():
     user = current_user()
     if not user:
@@ -385,17 +392,35 @@ def score_startup(startup_id):
     if user.role not in ["startup", "admin"]:
         return jsonify({"error": "Forbidden"}), 403
 
-    ai_result = call_gemini_score(startup.idea, startup.industry)
-    market_logic = int(ai_result.get("market_logic", 0) or 0)
+    ai_result = call_gemini_score(
+        startup.idea,
+        startup.industry,
+        {
+            "name": startup.name,
+            "stage": startup.stage,
+            "team_size": startup.team_size,
+            "investment_needed": startup.investment_needed,
+        },
+    )
+    if not ai_result.get("ai_ok"):
+        # Deterministic fallback required for demo stability.
+        ai_result = {
+            "clarity": 3,
+            "feasibility": 4,
+            "differentiation": 5,
+            "market_logic": 5,
+            "risk_flags": ["lack of data"],
+            "explanation": "AI unavailable; fallback score applied.",
+            "ai_ok": False,
+        }
+    clarity = clamp(to_int_safe(ai_result.get("clarity"), 0), 0, 10)
+    feasibility = clamp(to_int_safe(ai_result.get("feasibility"), 0), 0, 10)
+    differentiation = clamp(to_int_safe(ai_result.get("differentiation"), 0), 0, 10)
+    market_logic = clamp(to_int_safe(ai_result.get("market_logic"), 0), 0, 10)
+
     startup.market_impact = 5 if market_logic <= 0 else clamp(market_logic, 1, 10)
     rule_score = rule_score_calc(startup)
-    ai_score = (
-        ai_result["clarity"]
-        + ai_result["feasibility"]
-        + ai_result["differentiation"]
-        + ai_result["market_logic"]
-    )
-    ai_score = max(0, min(40, int(ai_score)))
+    ai_score = max(0, min(40, clarity + feasibility + differentiation + market_logic))
 
     startup.rule_score = rule_score
     startup.ai_score = ai_score
@@ -416,13 +441,15 @@ def score_startup(startup_id):
             "rule_score": startup.rule_score,
             "ai_score": startup.ai_score,
             "total_score": startup.total_score,
+            "ai_ok": bool(ai_result.get("ai_ok")),
+            "ai_source": "gemini" if ai_result.get("ai_ok") else "fallback",
             "explanation": startup.ai_explanation or "",
             "risk_flags": ai_result["risk_flags"],
             "ai_breakdown": {
-                "clarity": ai_result["clarity"],
-                "feasibility": ai_result["feasibility"],
-                "differentiation": ai_result["differentiation"],
-                "market_logic": ai_result["market_logic"],
+                "clarity": clarity,
+                "feasibility": feasibility,
+                "differentiation": differentiation,
+                "market_logic": market_logic,
             },
         }
     ), 200

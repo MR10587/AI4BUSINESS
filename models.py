@@ -63,6 +63,10 @@ class Startup(db.Model):
             except (json.JSONDecodeError, TypeError):
                 risk_flags_list = []
 
+        explanation = self.ai_explanation or ""
+        ai_source = "fallback" if "fallback score applied" in explanation.lower() else ("gemini" if self.ai_score > 0 else "unknown")
+        ai_ok = ai_source == "gemini"
+
         return {
             "id": self.id,
             "user_id": self.user_id,
@@ -80,6 +84,8 @@ class Startup(db.Model):
             "ai_score": self.ai_score,
             "total_score": self.total_score,
             "ai_explanation": self.ai_explanation,
+            "ai_ok": ai_ok,
+            "ai_source": ai_source,
             "risk_flags": risk_flags_list,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 
@@ -26,6 +27,8 @@ COMMON_WEAK_PASSWORDS = {
     "000000",
     "123123",
 }
+
+logger = logging.getLogger(__name__)
 
 
 def clamp(value, min_value, max_value):
@@ -152,7 +155,9 @@ def _extract_json_object(raw_text):
 
 def _sanitize_ai_result(parsed):
     if not isinstance(parsed, dict):
-        return DEFAULT_AI_RESULT.copy()
+        result = DEFAULT_AI_RESULT.copy()
+        result["ai_ok"] = False
+        return result
 
     score_block = parsed.get("scores")
     if not isinstance(score_block, dict):
@@ -176,13 +181,19 @@ def _sanitize_ai_result(parsed):
                 return clamp(score, 0, 10)
         return 0
 
+    clarity = pick_score("clarity")
+    feasibility = pick_score("feasibility")
+    differentiation = pick_score("differentiation", "differentiate")
+    market_logic = pick_score("market_logic", "marketLogic", "market")
+
     result = {
-        "clarity": pick_score("clarity"),
-        "feasibility": pick_score("feasibility"),
-        "differentiation": pick_score("differentiation", "differentiate"),
-        "market_logic": pick_score("market_logic", "marketLogic", "market"),
+        "clarity": clarity,
+        "feasibility": feasibility,
+        "differentiation": differentiation,
+        "market_logic": market_logic,
         "risk_flags": [],
         "explanation": "AI unavailable",
+        "ai_ok": False,
     }
 
     risk_flags = parsed.get("risk_flags", [])
@@ -195,13 +206,26 @@ def _sanitize_ai_result(parsed):
     if isinstance(explanation, str) and explanation.strip():
         result["explanation"] = explanation.strip()
 
+    # AI is considered valid when at least one scoring signal exists.
+    total_signal = clarity + feasibility + differentiation + market_logic
+    result["ai_ok"] = total_signal > 0
+
     return result
 
 
-def call_gemini_score(idea, industry):
+def call_gemini_score(idea, industry, context=None):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return DEFAULT_AI_RESULT.copy()
+        logger.warning("GEMINI_API_KEY missing")
+        result = DEFAULT_AI_RESULT.copy()
+        result["ai_ok"] = False
+        return result
+
+    context = context or {}
+    startup_name = str(context.get("name", "")).strip()
+    stage = str(context.get("stage", "")).strip()
+    team_size = context.get("team_size")
+    investment_needed = context.get("investment_needed")
 
     prompt = (
         "You are scoring startup ideas. Return STRICT JSON only with keys: "
@@ -209,8 +233,12 @@ def call_gemini_score(idea, industry):
         "Rules: clarity/feasibility/differentiation/market_logic must be integer 0..10. "
         "risk_flags must be JSON array of short strings, max 3 items. "
         "explanation must be 1-2 sentences. No markdown, no extra text.\n"
+        f"Startup Name: {startup_name}\n"
         f"Idea: {idea}\n"
         f"Industry: {industry}\n"
+        f"Stage: {stage}\n"
+        f"Team Size: {team_size}\n"
+        f"Investment Needed: {investment_needed}\n"
     )
 
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
@@ -221,9 +249,9 @@ def call_gemini_score(idea, industry):
     }
 
     try:
-        # Ignore broken system proxy settings for direct Gemini access.
+        trust_env = os.getenv("GEMINI_TRUST_ENV", "true").lower() == "true"
         with requests.Session() as session:
-            session.trust_env = False
+            session.trust_env = trust_env
             response = session.post(
                 url,
                 params={"key": api_key},
@@ -239,6 +267,17 @@ def call_gemini_score(idea, industry):
             .get("text", "")
         )
         parsed = _extract_json_object(text)
-        return _sanitize_ai_result(parsed)
-    except (requests.RequestException, ValueError, KeyError, IndexError, TypeError):
-        return DEFAULT_AI_RESULT.copy()
+        result = _sanitize_ai_result(parsed)
+        if not result.get("ai_ok"):
+            logger.warning("Gemini response parsed but missing usable score fields")
+        return result
+    except requests.RequestException:
+        logger.exception("Gemini API request failed")
+        result = DEFAULT_AI_RESULT.copy()
+        result["ai_ok"] = False
+        return result
+    except (ValueError, KeyError, IndexError, TypeError):
+        logger.exception("Gemini API response parsing failed")
+        result = DEFAULT_AI_RESULT.copy()
+        result["ai_ok"] = False
+        return result
