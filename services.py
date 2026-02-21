@@ -1,10 +1,6 @@
 import json
 import os
 import re
-import secrets
-import smtplib
-import ssl
-from email.message import EmailMessage
 
 import requests
 
@@ -56,57 +52,6 @@ def password_rules_failed(password, email):
     if email_local and email_local in pwd.lower():
         failed.append("contains_email_local_part")
     return failed
-
-
-def generate_otp_code():
-    # Dev-only fixed OTP support for hackathon demos without real email.
-    use_fixed = os.getenv("OTP_USE_FIXED", "true").lower() == "true"
-    fixed_code = str(os.getenv("OTP_FIXED_CODE", "123456")).strip()
-    if use_fixed and re.fullmatch(r"\d{6}", fixed_code):
-        return fixed_code
-
-    # 100000..999999 avoids trivial leading-zero outputs.
-    return str(secrets.randbelow(900000) + 100000)
-
-
-def send_email_otp(to_email, otp_code):
-    host = os.getenv("EMAIL_HOST")
-    port = int(os.getenv("EMAIL_PORT", "587"))
-    username = os.getenv("EMAIL_USERNAME")
-    password = os.getenv("EMAIL_PASSWORD")
-    sender = os.getenv("EMAIL_FROM")
-    use_tls = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
-
-    if not all([host, username, password, sender]):
-        print(f"[DEV MAIL] OTP sent to {to_email}")
-        print(f"[DEV OTP] code={otp_code}")
-        return True
-
-    message = EmailMessage()
-    message["Subject"] = "Your AI4Business Login OTP"
-    message["From"] = sender
-    message["To"] = to_email
-    message.set_content(
-        "Your one-time login code is: "
-        f"{otp_code}\n\n"
-        "This code expires in 5 minutes.\n"
-        "If you did not request this, please ignore."
-    )
-
-    try:
-        if use_tls:
-            context = ssl.create_default_context()
-            with smtplib.SMTP(host, port, timeout=10) as server:
-                server.starttls(context=context)
-                server.login(username, password)
-                server.send_message(message)
-        else:
-            with smtplib.SMTP_SSL(host, port, timeout=10) as server:
-                server.login(username, password)
-                server.send_message(message)
-        return True
-    except Exception:
-        return False
 
 
 def _to_int(value, default=0):

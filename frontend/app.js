@@ -37,6 +37,7 @@ const el = {
   riskFilterBtn: document.getElementById("riskFilterBtn"),
   startupSkeleton: document.getElementById("startupSkeleton"),
   startupsTbody: document.getElementById("startupsTbody"),
+  startupCards: document.getElementById("startupCards"),
   kpiTotal: document.getElementById("kpiTotal"),
   kpiAvg: document.getElementById("kpiAvg"),
   kpiDist: document.getElementById("kpiDist"),
@@ -70,20 +71,19 @@ function getUser() {
 }
 
 function addToast(type, message) {
-  if (!el.toastRoot) return;
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
   toast.textContent = message;
   el.toastRoot.appendChild(toast);
   setTimeout(() => {
     if (toast.parentNode) toast.parentNode.removeChild(toast);
-  }, 3200);
+  }, 3500);
 }
 
-function setButtonLoading(button, isLoading) {
+function setButtonLoading(button, loading) {
   if (!button) return;
-  button.disabled = isLoading;
-  button.classList.toggle("loading", isLoading);
+  button.disabled = loading;
+  button.classList.toggle("loading", loading);
 }
 
 function logout(showToast = true) {
@@ -114,7 +114,7 @@ async function api(path, { method = "GET", body, auth = true } = {}) {
       data = {};
     }
 
-    if (res.status === 401) {
+    if (res.status === 401 && auth) {
       logout(false);
       addToast("error", "Session expired. Please login again.");
       return null;
@@ -154,13 +154,7 @@ function showTab(tabName) {
 }
 
 function clearNode(node) {
-  if (!node) return;
   while (node.firstChild) node.removeChild(node.firstChild);
-}
-
-function isWeakPassword(password) {
-  const weak = new Set(["password", "12345678", "qwerty123", "admin123", "11111111"]);
-  return weak.has(String(password || "").toLowerCase());
 }
 
 function evaluatePassword(password) {
@@ -171,25 +165,19 @@ function evaluatePassword(password) {
     lower: /[a-z]/.test(value),
     number: /\d/.test(value),
     symbol: /[^A-Za-z0-9]/.test(value),
-    notWeak: !isWeakPassword(value),
+    notWeak: !["password", "12345678", "qwerty123", "admin123", "11111111"].includes(value.toLowerCase()),
   };
 }
 
 function updatePasswordStrengthUI(password) {
-  if (!el.passwordChecklist || !el.passwordStrengthLabel) return;
   const checks = evaluatePassword(password);
   const passed = Object.values(checks).filter(Boolean).length;
   const items = el.passwordChecklist.querySelectorAll("li");
   items.forEach((item) => {
     const key = item.getAttribute("data-check");
-    const ok = checks[key];
-    item.style.color = ok ? "#27ae60" : "#95a5a6";
+    item.style.color = checks[key] ? "#27ae60" : "#95a5a6";
   });
-
-  let label = "Strength: Weak";
-  if (passed >= 6) label = "Strength: Strong";
-  else if (passed >= 4) label = "Strength: Medium";
-  el.passwordStrengthLabel.textContent = label;
+  el.passwordStrengthLabel.textContent = passed >= 6 ? "Strength: Strong" : passed >= 4 ? "Strength: Medium" : "Strength: Weak";
 }
 
 function generateStrongPassword() {
@@ -201,13 +189,13 @@ function generateStrongPassword() {
 
 function renderIndustryFilterOptions() {
   const current = el.industryFilter.value;
-  const industries = [...new Set(state.startups.map((s) => s.industry).filter(Boolean))].sort();
+  const options = [...new Set(state.startups.map((s) => s.industry).filter(Boolean))].sort();
   clearNode(el.industryFilter);
   const all = document.createElement("option");
   all.value = "";
   all.textContent = "All Industries";
   el.industryFilter.appendChild(all);
-  for (const ind of industries) {
+  for (const ind of options) {
     const option = document.createElement("option");
     option.value = ind;
     option.textContent = ind;
@@ -218,217 +206,19 @@ function renderIndustryFilterOptions() {
 
 function filteredStartups() {
   let rows = [...state.startups];
-  const selectedIndustry = el.industryFilter.value;
-  if (selectedIndustry) rows = rows.filter((s) => s.industry === selectedIndustry);
+  const industry = el.industryFilter.value;
+  if (industry) rows = rows.filter((s) => s.industry === industry);
   if (state.highRiskOnly) rows = rows.filter((s) => Array.isArray(s.risk_flags) && s.risk_flags.length > 0);
   if (state.sortByScore) rows.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
   return rows;
 }
 
-function formatInvestment(value) {
-  if (value == null || value === "") return "—";
-  const num = Number(value);
-  if (isNaN(num)) return String(value);
-  return num.toLocaleString("en-US");
-}
-
-function buildContactCell(startup) {
-  const div = document.createElement("div");
-  div.className = "contact-info";
-
-  const email = (startup.contact_email || "").trim();
-  const phone = (startup.contact_phone || "").trim();
-
-  if (!email && !phone) {
-    const span = document.createElement("span");
-    span.className = "muted";
-    span.textContent = "—";
-    div.appendChild(span);
-    return div;
-  }
-
-  if (email) {
-    const line = document.createElement("div");
-    line.className = "contact-line";
-    const icon = document.createElement("span");
-    icon.className = "contact-icon";
-    icon.textContent = "✉";
-    line.appendChild(icon);
-    const link = document.createElement("a");
-    link.href = `mailto:${email}`;
-    link.textContent = email;
-    link.title = email;
-    line.appendChild(link);
-    div.appendChild(line);
-  }
-
-  if (phone) {
-    const line = document.createElement("div");
-    line.className = "contact-line";
-    const icon = document.createElement("span");
-    icon.className = "contact-icon";
-    icon.textContent = "☎";
-    line.appendChild(icon);
-    const link = document.createElement("a");
-    link.href = `tel:${phone}`;
-    link.textContent = phone;
-    link.title = phone;
-    line.appendChild(link);
-    div.appendChild(line);
-  }
-
-  return div;
-}
-
-function openStartupModal(startup) {
-  if (!startup) return;
-  clearNode(el.viewModalBody);
-  const fields = [
-    ["Name", startup.name || ""],
-    ["Industry", startup.industry || ""],
-    ["Stage", startup.stage || ""],
-    ["Team Size", startup.team_size ?? ""],
-    ["Investment Needed", formatInvestment(startup.investment_needed)],
-  ];
-  for (const [label, value] of fields) {
-    const p = document.createElement("p");
-    const strong = document.createElement("strong");
-    strong.textContent = `${label}: `;
-    p.appendChild(strong);
-    p.appendChild(document.createTextNode(String(value)));
-    el.viewModalBody.appendChild(p);
-  }
-
-  // Scores section with badges
-  const scoresDiv = document.createElement("div");
-  scoresDiv.style.margin = "0.75rem 0";
-  const scoresLabel = document.createElement("strong");
-  scoresLabel.textContent = "Scores: ";
-  scoresDiv.appendChild(scoresLabel);
-
-  const badgesContainer = document.createElement("span");
-  badgesContainer.className = "score-badges";
-  badgesContainer.style.display = "inline-flex";
-  badgesContainer.style.gap = "6px";
-  badgesContainer.style.marginLeft = "4px";
-
-  const scores = [
-    { label: "Total", value: startup.total_score ?? 0, cls: "total" },
-    { label: "Rule", value: startup.rule_score ?? 0, cls: "rule" },
-    { label: "AI", value: startup.ai_score ?? 0, cls: "ai" },
-  ];
-  for (const s of scores) {
-    const badge = document.createElement("span");
-    badge.className = `score-badge ${s.cls}`;
-    badge.textContent = `${s.label} ${s.value}`;
-    badgesContainer.appendChild(badge);
-  }
-  scoresDiv.appendChild(badgesContainer);
-  el.viewModalBody.appendChild(scoresDiv);
-
-  // Risk flags
-  const riskDiv = document.createElement("div");
-  riskDiv.style.margin = "0.75rem 0";
-  const riskLabel = document.createElement("strong");
-  riskLabel.textContent = "Risk Flags: ";
-  riskDiv.appendChild(riskLabel);
-  const riskFlags = Array.isArray(startup.risk_flags) ? startup.risk_flags : [];
-  if (riskFlags.length > 0) {
-    const tagsContainer = document.createElement("span");
-    tagsContainer.className = "risk-tags";
-    tagsContainer.style.display = "inline-flex";
-    tagsContainer.style.marginLeft = "4px";
-    for (const flag of riskFlags) {
-      const tag = document.createElement("span");
-      tag.className = "risk-tag";
-      tag.textContent = flag;
-      tagsContainer.appendChild(tag);
-    }
-    riskDiv.appendChild(tagsContainer);
-  } else {
-    const noneSpan = document.createElement("span");
-    noneSpan.className = "risk-tag none";
-    noneSpan.textContent = "None";
-    noneSpan.style.marginLeft = "4px";
-    riskDiv.appendChild(noneSpan);
-  }
-  el.viewModalBody.appendChild(riskDiv);
-
-  // Contact info
-  const contactDiv = document.createElement("div");
-  contactDiv.style.margin = "0.75rem 0";
-  const contactLabel = document.createElement("strong");
-  contactLabel.textContent = "Contact Info:";
-  contactDiv.appendChild(contactLabel);
-  const contactEmail = (startup.contact_email || "").trim();
-  const contactPhone = (startup.contact_phone || "").trim();
-  if (contactEmail || contactPhone) {
-    const contactList = document.createElement("div");
-    contactList.style.marginTop = "4px";
-    contactList.style.paddingLeft = "0.5rem";
-    if (contactEmail) {
-      const ep = document.createElement("p");
-      ep.style.margin = "2px 0";
-      ep.innerHTML = `✉ <a href="mailto:${contactEmail}">${contactEmail}</a>`;
-      contactList.appendChild(ep);
-    }
-    if (contactPhone) {
-      const pp = document.createElement("p");
-      pp.style.margin = "2px 0";
-      pp.innerHTML = `☎ <a href="tel:${contactPhone}">${contactPhone}</a>`;
-      contactList.appendChild(pp);
-    }
-    contactDiv.appendChild(contactList);
-  } else {
-    const noneSpan = document.createElement("span");
-    noneSpan.className = "muted";
-    noneSpan.textContent = " Not provided";
-    contactDiv.appendChild(noneSpan);
-  }
-  el.viewModalBody.appendChild(contactDiv);
-
-  // Idea
-  const ideaP = document.createElement("p");
-  ideaP.style.marginTop = "0.75rem";
-  const ideaStrong = document.createElement("strong");
-  ideaStrong.textContent = "Idea: ";
-  ideaP.appendChild(ideaStrong);
-  ideaP.appendChild(document.createTextNode(startup.idea || ""));
-  el.viewModalBody.appendChild(ideaP);
-
-  el.viewModal.classList.remove("hidden");
-}
-
-function closeStartupModal() {
-  el.viewModal.classList.add("hidden");
-}
-
-async function handleDeleteStartup(startupId) {
-  const user = getUser();
-  if (!user) return;
-  const ok = window.confirm("Are you sure you want to delete this startup?");
-  if (!ok) return;
-  const path = user.role === "admin" ? `/admin/startups/${startupId}` : `/startups/${startupId}`;
-  const result = await api(path, { method: "DELETE" });
-  if (result) {
-    addToast("success", user.role === "admin" ? "Startup deleted by admin" : "Startup deleted");
-    await loadStartups();
-  }
-}
-
-async function handleScoreStartup(startupId, button) {
-  setButtonLoading(button, true);
-  const result = await api(`/startups/${startupId}/score`, { method: "POST" });
-  setButtonLoading(button, false);
-  if (result) {
-    addToast("success", `Startup scored: total ${result.total_score}`);
-    await loadStartups();
-  }
-}
-
 function renderStartups() {
   clearNode(el.startupsTbody);
+  clearNode(el.startupCards);
   const rows = filteredStartups();
+  const user = getUser();
+
   if (!rows.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
@@ -442,86 +232,72 @@ function renderStartups() {
 
   for (const startup of rows) {
     const tr = document.createElement("tr");
-
-    // Name
-    const tdName = document.createElement("td");
-    tdName.textContent = startup.name || "";
-    tr.appendChild(tdName);
-
-    // Industry
-    const tdIndustry = document.createElement("td");
-    tdIndustry.textContent = startup.industry || "";
-    tr.appendChild(tdIndustry);
-
-    // Team Size
-    const tdTeam = document.createElement("td");
-    tdTeam.className = "text-center";
-    tdTeam.textContent = String(startup.team_size ?? "");
-    tr.appendChild(tdTeam);
-
-    // Investment
-    const tdInvestment = document.createElement("td");
-    tdInvestment.className = "text-right";
-    tdInvestment.textContent = formatInvestment(startup.investment_needed);
-    tr.appendChild(tdInvestment);
-
-    // Scores
-    const tdScores = document.createElement("td");
-    const badgesDiv = document.createElement("div");
-    badgesDiv.className = "score-badges";
-
-    const totalBadge = document.createElement("span");
-    totalBadge.className = "score-badge total";
-    totalBadge.textContent = `Total ${startup.total_score || 0}`;
-    badgesDiv.appendChild(totalBadge);
-
-    const ruleBadge = document.createElement("span");
-    ruleBadge.className = "score-badge rule";
-    ruleBadge.textContent = `Rule ${startup.rule_score || 0}`;
-    badgesDiv.appendChild(ruleBadge);
-
-    const aiBadge = document.createElement("span");
-    aiBadge.className = "score-badge ai";
-    aiBadge.textContent = `AI ${startup.ai_score || 0}`;
-    badgesDiv.appendChild(aiBadge);
-
-    tdScores.appendChild(badgesDiv);
-    tr.appendChild(tdScores);
-
-    // Risk Flags
-    const tdRisk = document.createElement("td");
-    const riskFlags = Array.isArray(startup.risk_flags) ? startup.risk_flags : [];
-    if (riskFlags.length > 0) {
-      const tagsDiv = document.createElement("div");
-      tagsDiv.className = "risk-tags";
-      for (const flag of riskFlags) {
-        const tag = document.createElement("span");
-        tag.className = "risk-tag";
-        tag.textContent = flag;
-        tagsDiv.appendChild(tag);
-      }
-      tdRisk.appendChild(tagsDiv);
-    } else {
-      const noneTag = document.createElement("span");
-      noneTag.className = "risk-tag none";
-      noneTag.textContent = "—";
-      tdRisk.appendChild(noneTag);
+    const cols = [
+      startup.name || "",
+      startup.industry || "",
+      String(startup.team_size ?? ""),
+      Number(startup.investment_needed || 0).toLocaleString("en-US"),
+      `T:${startup.total_score || 0} R:${startup.rule_score || 0} AI:${startup.ai_score || 0}`,
+      (startup.risk_flags || []).join(", ") || "-",
+      startup.stage || "",
+      [startup.contact_name, startup.contact_email, startup.contact_phone].filter(Boolean).join(" | ") || "-",
+    ];
+    for (const value of cols) {
+      const td = document.createElement("td");
+      td.textContent = value;
+      tr.appendChild(td);
     }
-    tr.appendChild(tdRisk);
-
-    // Stage
-    const tdStage = document.createElement("td");
-    tdStage.className = "text-center";
-    tdStage.textContent = startup.stage || "";
-    tr.appendChild(tdStage);
-
-    // Contact
-    const tdContact = document.createElement("td");
-    tdContact.appendChild(buildContactCell(startup));
-    tr.appendChild(tdContact);
-
+    tr.addEventListener("click", () => openStartupModal(startup));
     el.startupsTbody.appendChild(tr);
+
+    const card = document.createElement("div");
+    card.className = "card";
+    const title = document.createElement("h4");
+    title.textContent = startup.name || "Startup";
+    card.appendChild(title);
+    const meta = document.createElement("p");
+    meta.className = "muted";
+    meta.textContent = `${startup.industry || "-"} | ${startup.stage || "-"} | Team ${startup.team_size ?? "-"}`;
+    card.appendChild(meta);
+    const score = document.createElement("p");
+    score.textContent = `Total ${startup.total_score || 0} | Rule ${startup.rule_score || 0} | AI ${startup.ai_score || 0}`;
+    card.appendChild(score);
+    const viewBtn = document.createElement("button");
+    viewBtn.className = "btn btn-secondary btn-sm";
+    viewBtn.textContent = "View";
+    viewBtn.type = "button";
+    viewBtn.addEventListener("click", () => openStartupModal(startup));
+    card.appendChild(viewBtn);
+    el.startupCards.appendChild(card);
   }
+}
+
+function openStartupModal(startup) {
+  clearNode(el.viewModalBody);
+  const fields = [
+    ["Name", startup.name || ""],
+    ["Industry", startup.industry || ""],
+    ["Idea", startup.idea || ""],
+    ["Team Size", startup.team_size ?? ""],
+    ["Investment Needed", startup.investment_needed ?? ""],
+    ["Stage", startup.stage || ""],
+    ["Contact Name", startup.contact_name || ""],
+    ["Contact Email", startup.contact_email || ""],
+    ["Contact Phone", startup.contact_phone || ""],
+  ];
+  for (const [label, value] of fields) {
+    const p = document.createElement("p");
+    const strong = document.createElement("strong");
+    strong.textContent = `${label}: `;
+    p.appendChild(strong);
+    p.appendChild(document.createTextNode(String(value || "-")));
+    el.viewModalBody.appendChild(p);
+  }
+  el.viewModal.classList.remove("hidden");
+}
+
+function closeStartupModal() {
+  el.viewModal.classList.add("hidden");
 }
 
 async function loadStartups() {
@@ -539,20 +315,18 @@ function renderKpi(data) {
   el.kpiAvg.textContent = String(data.avg_total_score || 0);
   const d = data.score_distribution || {};
   el.kpiDist.textContent = `0-39: ${d["0_39"] || 0} | 40-59: ${d["40_59"] || 0} | 60-79: ${d["60_79"] || 0} | 80-100: ${d["80_100"] || 0}`;
-
   clearNode(el.topIndustriesList);
-  for (const item of data.top_industries || []) {
+  (data.top_industries || []).forEach((i) => {
     const li = document.createElement("li");
-    li.textContent = `${item.industry}: ${item.count}`;
+    li.textContent = `${i.industry}: ${i.count}`;
     el.topIndustriesList.appendChild(li);
-  }
-
+  });
   clearNode(el.recentActivityList);
-  for (const item of data.recent_activity || []) {
+  (data.recent_activity || []).forEach((a) => {
     const li = document.createElement("li");
-    li.textContent = `${item.created_at || "-"} | user:${item.user_id ?? "-"} | ${item.action || ""}`;
+    li.textContent = `${a.created_at || "-"} | user:${a.user_id ?? "-"} | ${a.action || ""}`;
     el.recentActivityList.appendChild(li);
-  }
+  });
 }
 
 async function loadKpi() {
@@ -569,77 +343,30 @@ function renderUsers() {
     el.usersList.appendChild(p);
     return;
   }
-
   const current = getUser();
-
-  const table = document.createElement("table");
-  table.className = "users-table";
-
-  // Header
-  const thead = document.createElement("thead");
-  const headerRow = document.createElement("tr");
-  for (const h of ["ID", "Email", "Role", "Startups", "Created", ""]) {
-    const th = document.createElement("th");
-    th.textContent = h;
-    headerRow.appendChild(th);
-  }
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  // Body
-  const tbody = document.createElement("tbody");
   for (const u of state.users) {
-    const tr = document.createElement("tr");
-
-    const tdId = document.createElement("td");
-    tdId.textContent = `#${u.id}`;
-    tr.appendChild(tdId);
-
-    const tdEmail = document.createElement("td");
-    tdEmail.textContent = u.email || "";
-    tr.appendChild(tdEmail);
-
-    const tdRole = document.createElement("td");
-    const roleBadge = document.createElement("span");
-    roleBadge.className = `role-badge ${u.role || ""}`;
-    roleBadge.textContent = u.role || "";
-    tdRole.appendChild(roleBadge);
-    tr.appendChild(tdRole);
-
-    const tdStartups = document.createElement("td");
-    tdStartups.textContent = String(u.startups_count || 0);
-    tr.appendChild(tdStartups);
-
-    const tdCreated = document.createElement("td");
-    const raw = u.created_at || "";
-    tdCreated.textContent = raw ? raw.replace("T", " ").split(".")[0] : "—";
-    tdCreated.style.fontSize = "0.82rem";
-    tdCreated.style.color = "#7f8c8d";
-    tr.appendChild(tdCreated);
-
-    const tdActions = document.createElement("td");
-    if (current && current.id !== u.id) {
-      const del = document.createElement("button");
-      del.className = "btn btn-sm btn-danger";
-      del.type = "button";
-      del.textContent = "Delete";
-      del.addEventListener("click", async () => {
-        const ok = window.confirm(`Delete user ${u.email} and their startups?`);
-        if (!ok) return;
+    const row = document.createElement("div");
+    row.className = "card";
+    const p = document.createElement("p");
+    p.textContent = `#${u.id} ${u.email} | ${u.role} | startups:${u.startups_count || 0}`;
+    row.appendChild(p);
+    if (current && u.id !== current.id) {
+      const btn = document.createElement("button");
+      btn.className = "btn btn-sm btn-danger";
+      btn.textContent = "Delete";
+      btn.type = "button";
+      btn.addEventListener("click", async () => {
+        if (!window.confirm("Delete this user and their startups?")) return;
         const res = await api(`/admin/users/${u.id}`, { method: "DELETE" });
         if (res) {
           addToast("success", "User deleted");
           await loadUsers();
         }
       });
-      tdActions.appendChild(del);
+      row.appendChild(btn);
     }
-    tr.appendChild(tdActions);
-
-    tbody.appendChild(tr);
+    el.usersList.appendChild(row);
   }
-  table.appendChild(tbody);
-  el.usersList.appendChild(table);
 }
 
 async function loadUsers() {
@@ -660,10 +387,6 @@ async function handleChangePassword(event) {
     addToast("error", "All password fields are required");
     return;
   }
-  if (new_password.length < 8) {
-    addToast("error", "New password must be at least 8 characters");
-    return;
-  }
   setButtonLoading(el.changePasswordSubmitBtn, true);
   const res = await api("/admin/change-password", {
     method: "POST",
@@ -674,6 +397,30 @@ async function handleChangePassword(event) {
     addToast("success", "Password updated");
     el.changePasswordForm.reset();
   }
+}
+
+async function handleLoginSubmit(event) {
+  event.preventDefault();
+  setButtonLoading(el.loginSubmitBtn, true);
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const start = await api("/login", {
+    method: "POST",
+    auth: false,
+    body: { email, password },
+  });
+  setButtonLoading(el.loginSubmitBtn, false);
+  if (!start) return;
+
+  if (start.access_token) {
+    localStorage.setItem("token", start.access_token);
+    localStorage.setItem("user", JSON.stringify(start.user));
+    addToast("success", "Login successful");
+    renderApp();
+    return;
+  }
+
+  addToast("error", "Unexpected login response");
 }
 
 function renderApp() {
@@ -694,43 +441,17 @@ function renderApp() {
   el.kpiTabBtn.classList.toggle("hidden", !isAdmin);
   el.usersTabBtn.classList.toggle("hidden", !isAdmin);
   el.securityTabBtn.classList.toggle("hidden", !isAdmin);
-
-  // Only startup role can create startups — NOT admin
   el.createStartupCard.classList.toggle("hidden", user.role !== "startup");
-
   showTab("startups");
   loadStartups();
 }
 
 el.showLoginBtn.addEventListener("click", () => toggleAuth("login"));
 el.showRegisterBtn.addEventListener("click", () => toggleAuth("register"));
-
-el.loginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  setButtonLoading(el.loginSubmitBtn, true);
-  const res = await api("/login", {
-    method: "POST",
-    auth: false,
-    body: {
-      email: document.getElementById("loginEmail").value.trim(),
-      password: document.getElementById("loginPassword").value,
-    },
-  });
-  setButtonLoading(el.loginSubmitBtn, false);
-  if (!res) return;
-  localStorage.setItem("token", res.access_token);
-  localStorage.setItem("user", JSON.stringify(res.user));
-  addToast("success", "Login successful");
-  renderApp();
-});
+el.loginForm.addEventListener("submit", handleLoginSubmit);
 
 el.registerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const password = document.getElementById("registerPassword").value;
-  if (isWeakPassword(password)) {
-    addToast("error", "Please choose a stronger password");
-    return;
-  }
   setButtonLoading(el.registerSubmitBtn, true);
   const res = await api("/register", {
     method: "POST",
@@ -738,39 +459,34 @@ el.registerForm.addEventListener("submit", async (event) => {
     body: {
       name: document.getElementById("registerName").value.trim(),
       email: document.getElementById("registerEmail").value.trim(),
-      password,
+      password: document.getElementById("registerPassword").value,
       role: document.getElementById("registerRole").value,
     },
   });
   setButtonLoading(el.registerSubmitBtn, false);
   if (!res) return;
   el.registerForm.reset();
+  updatePasswordStrengthUI("");
   addToast("success", "Registration successful. Please login.");
   toggleAuth("login");
-  updatePasswordStrengthUI("");
 });
 
 el.logoutBtn.addEventListener("click", () => logout(true));
-
 el.refreshBtn.addEventListener("click", () => {
   if (state.currentTab === "startups") loadStartups();
   if (state.currentTab === "kpi") loadKpi();
   if (state.currentTab === "users") loadUsers();
 });
-
 el.startupsTabBtn.addEventListener("click", () => showTab("startups"));
 el.kpiTabBtn.addEventListener("click", () => showTab("kpi"));
 el.usersTabBtn.addEventListener("click", () => showTab("users"));
 el.securityTabBtn.addEventListener("click", () => showTab("security"));
-
 el.industryFilter.addEventListener("change", renderStartups);
-
 el.sortScoreBtn.addEventListener("click", () => {
   state.sortByScore = !state.sortByScore;
   el.sortScoreBtn.classList.toggle("active", state.sortByScore);
   renderStartups();
 });
-
 el.riskFilterBtn.addEventListener("click", () => {
   state.highRiskOnly = !state.highRiskOnly;
   el.riskFilterBtn.classList.toggle("active", state.highRiskOnly);
@@ -786,9 +502,9 @@ el.createStartupForm.addEventListener("submit", async (event) => {
       name: document.getElementById("startupName").value.trim(),
       idea: document.getElementById("startupIdea").value.trim(),
       industry: document.getElementById("startupIndustry").value.trim(),
-      stage: document.getElementById("startupStage").value,
-      team_size: Number(document.getElementById("startupTeam").value),
+      team_size: Number(document.getElementById("startupTeamSize").value),
       investment_needed: Number(document.getElementById("startupInvestment").value),
+      stage: document.getElementById("startupStage").value,
       contact_name: document.getElementById("startupContactName").value.trim(),
       contact_email: document.getElementById("startupContactEmail").value.trim(),
       contact_phone: document.getElementById("startupContactPhone").value.trim(),
@@ -796,10 +512,10 @@ el.createStartupForm.addEventListener("submit", async (event) => {
   });
   setButtonLoading(el.createStartupSubmitBtn, false);
   if (res) {
-    el.createStartupForm.reset();
     addToast("success", "Startup created");
-    loadStartups();
-  } 
+    el.createStartupForm.reset();
+    await loadStartups();
+  }
 });
 
 el.changePasswordForm.addEventListener("submit", handleChangePassword);
@@ -808,10 +524,11 @@ el.generatePasswordBtn.addEventListener("click", () => {
   const pwd = generateStrongPassword();
   el.registerPassword.value = pwd;
   updatePasswordStrengthUI(pwd);
+  addToast("info", "Generated strong password");
 });
 el.viewModalClose.addEventListener("click", closeStartupModal);
 window.addEventListener("click", (event) => {
   if (event.target === el.viewModal) closeStartupModal();
 });
- 
+
 renderApp();
