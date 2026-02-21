@@ -419,7 +419,7 @@ textarea {
 .col-risk       { width: 22%; }
 .col-stage      { width: 7%;  text-align: center; }
 .col-contact    { width: 23%; }
-.col-action     { width: 8%;  text-align: center; }
+.col-action     { width: 16%; text-align: center; }
 
 td.text-center { text-align: center; }
 td.text-right  { text-align: right; }
@@ -428,7 +428,8 @@ td.text-right  { text-align: right; }
   display: flex;
   gap: 0.4rem;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .btn-sm {
