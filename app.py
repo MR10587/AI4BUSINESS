@@ -20,7 +20,19 @@ app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "change-me")
 db.init_app(app)
 jwt = JWTManager(app)
 bcrypt = Bcrypt(app)
-CORS(app)
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "http://127.0.0.1:5500",
+                "http://localhost:5500",
+            ]
+        }
+    },
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+)
 
 
 def get_json_body():

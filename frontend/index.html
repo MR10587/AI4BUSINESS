@@ -1,290 +1,121 @@
-<!DOCTYPE html>
-<html lang="az">
+<!doctype html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AI4BUSINESS - AI-driven Business Intelligence Platform">
-    <title>AI4BUSINESS - Intelligent Business Solutions</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI4BUSINESS Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="nav-wrapper">
-            <div class="logo">
-                <span class="logo-text">AI4BUSINESS</span>
-            </div>
-            <ul class="nav-menu">
-                <li><a href="#platform" class="nav-link">Platform</a></li>
-                <li><a href="#insights" class="nav-link">Insights</a></li>
-                <li><a href="#security" class="nav-link">Security</a></li>
-                <li><a href="#contact" class="nav-link">Contact Us</a></li>
-            </ul>
-            <button class="btn-login" onclick="showLoginModal()">Login</button>
-        </div>
-    </nav>
+  <main class="container">
+    <h1>AI4BUSINESS</h1>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-container">
-            <div class="hero-content">
-                <h1 class="hero-title">
-                    <span class="highlight">AI-driven</span> Business Scoring
-                </h1>
-            </div>
-            
-            <!-- 3D Floating Elements -->
-            <div class="floating-elements">
-                <!-- Main Plus Icon -->
-                <div class="float-item float-plus">
-                    <svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-                        <g fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="30" cy="30" r="25" opacity="0.3"/>
-                            <path d="M30 15 L30 45 M15 30 L45 30" stroke-linecap="round"/>
-                        </g>
-                    </svg>
-                </div>
+    <section id="messages" class="messages" aria-live="polite"></section>
+    <div id="loading" class="loading hidden">Loading...</div>
 
-                <!-- Card 1: Network Graph -->
-                <div class="card card-1 float-item">
-                    <div class="card-icon">
-                        <svg viewBox="0 0 80 60" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="20" cy="20" r="4" fill="currentColor"/>
-                            <circle cx="60" cy="20" r="4" fill="currentColor"/>
-                            <circle cx="40" cy="50" r="4" fill="currentColor"/>
-                            <line x1="20" y1="20" x2="60" y2="20" stroke="currentColor" stroke-width="1"/>
-                            <line x1="20" y1="20" x2="40" y2="50" stroke="currentColor" stroke-width="1"/>
-                            <line x1="60" y1="20" x2="40" y2="50" stroke="currentColor" stroke-width="1"/>
-                        </svg>
-                    </div>
-                    <p class="card-label">Network Analysis</p>
-                </div>
+    <section id="authSection" class="card">
+      <div class="auth-toggle">
+        <button id="showLoginBtn" class="btn active" type="button">Login</button>
+        <button id="showRegisterBtn" class="btn" type="button">Register</button>
+      </div>
 
-                <!-- Card 2: Bar Chart -->
-                <div class="card card-2 float-item">
-                    <div class="card-icon">
-                        <svg viewBox="0 0 80 60" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="15" y="35" width="8" height="20" fill="currentColor"/>
-                            <rect x="28" y="25" width="8" height="30" fill="currentColor"/>
-                            <rect x="41" y="30" width="8" height="25" fill="currentColor"/>
-                            <rect x="54" y="20" width="8" height="35" fill="currentColor"/>
-                        </svg>
-                    </div>
-                    <p class="card-label">Performance Metrics</p>
-                </div>
+      <form id="loginForm" class="form">
+        <h2>Login</h2>
+        <label>Email</label>
+        <input id="loginEmail" type="email" required />
+        <label>Password</label>
+        <input id="loginPassword" type="password" required />
+        <button class="btn primary" type="submit">Login</button>
+      </form>
 
-                <!-- Card 3: List/Reports -->
-                <div class="card card-3 float-item">
-                    <div class="card-icon">
-                        <svg viewBox="0 0 80 60" xmlns="http://www.w3.org/2000/svg">
-                            <line x1="10" y1="15" x2="70" y2="15" stroke="currentColor" stroke-width="2"/>
-                            <line x1="10" y1="30" x2="70" y2="30" stroke="currentColor" stroke-width="2"/>
-                            <line x1="10" y1="45" x2="70" y2="45" stroke="currentColor" stroke-width="2"/>
-                        </svg>
-                    </div>
-                    <p class="card-label">Detailed Reports</p>
-                </div>
-
-                <!-- Card 4: Pie Chart -->
-                <div class="card card-4 float-item">
-                    <div class="card-icon">
-                        <svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="30" cy="30" r="20" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="31.4 62.8" stroke-dashoffset="-31.4"/>
-                            <path d="M30 10 A20 20 0 0 1 50 30" fill="none" stroke="currentColor" stroke-width="2"/>
-                            <circle cx="30" cy="30" r="3" fill="currentColor"/>
-                        </svg>
-                    </div>
-                    <p class="card-label">Analytics Dashboard</p>
-                </div>
-
-                <!-- Card 5: Shield/Security -->
-                <div class="card card-5 float-item">
-                    <div class="card-icon">
-                        <svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M30 10 L50 20 L50 38 C50 48 30 55 30 55 C30 55 10 48 10 38 L10 20 Z" fill="none" stroke="currentColor" stroke-width="2"/>
-                            <circle cx="30" cy="35" r="4" fill="currentColor"/>
-                        </svg>
-                    </div>
-                    <p class="card-label">Secure Processing</p>
-                </div>
-
-                <!-- Decorative Plus Icons -->
-                <div class="float-item float-plus-small float-plus-1">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="1.5"/>
-                        <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="1.5"/>
-                    </svg>
-                </div>
-                <div class="float-item float-plus-small float-plus-2">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="1.5"/>
-                        <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="1.5"/>
-                    </svg>
-                </div>
-            </div>
-        </div>
+      <form id="registerForm" class="form hidden">
+        <h2>Register</h2>
+        <label>Name</label>
+        <input id="registerName" type="text" required />
+        <label>Email</label>
+        <input id="registerEmail" type="email" required />
+        <label>Password</label>
+        <input id="registerPassword" type="password" required />
+        <label>Role</label>
+        <select id="registerRole" required>
+          <option value="startup">startup</option>
+          <option value="investor">investor</option>
+          <option value="admin">admin</option>
+        </select>
+        <button class="btn primary" type="submit">Create account</button>
+      </form>
     </section>
 
-    <!-- Features Section -->
-    <section id="platform" class="features">
-        <div class="features-container">
-            <h2 class="section-title">Powerful Features</h2>
-            <div class="features-grid">
-                <div class="feature-item">
-                    <div class="feature-number">01</div>
-                    <h3>Real-time Analysis</h3>
-                    <p>Process and analyze business data instantly with AI-powered insights</p>
-                </div>
-                <div class="feature-item">
-                    <div class="feature-number">02</div>
-                    <h3>Predictive Scoring</h3>
-                    <p>Get accurate predictions using advanced machine learning algorithms</p>
-                </div>
-                <div class="feature-item">
-                    <div class="feature-number">03</div>
-                    <h3>Enterprise Security</h3>
-                    <p>Bank-level encryption and compliance with international standards</p>
-                </div>
-                <div class="feature-item">
-                    <div class="feature-number">04</div>
-                    <h3>Custom Reports</h3>
-                    <p>Generate detailed reports tailored to your business needs</p>
-                </div>
-            </div>
+    <section id="dashboardSection" class="hidden">
+      <div class="card topbar">
+        <div id="currentUser"></div>
+        <div class="actions">
+          <button id="startupsTabBtn" class="btn active" type="button">Startups</button>
+          <button id="kpiTabBtn" class="btn hidden" type="button">KPI</button>
+          <button id="refreshBtn" class="btn" type="button">Refresh</button>
+          <button id="logoutBtn" class="btn danger" type="button">Logout</button>
         </div>
+      </div>
+
+      <section id="startupsSection" class="card">
+        <h2>Startups</h2>
+
+        <form id="createStartupForm" class="form hidden">
+          <h3>Create Startup</h3>
+          <label>Idea</label>
+          <textarea id="idea" rows="3" required></textarea>
+          <label>Industry</label>
+          <input id="industry" type="text" required />
+          <label>Team size</label>
+          <input id="teamSize" type="number" min="1" required />
+          <label>Investment needed</label>
+          <input id="investmentNeeded" type="number" min="0" required />
+          <label>Market impact (1-10)</label>
+          <input id="marketImpact" type="number" min="1" max="10" required />
+          <label>Stage</label>
+          <select id="stage" required>
+            <option value="idea">idea</option>
+            <option value="mvp">mvp</option>
+            <option value="growth">growth</option>
+            <option value="scale">scale</option>
+          </select>
+          <button class="btn primary" type="submit">Create</button>
+        </form>
+
+        <div class="filters">
+          <input id="industryFilter" type="text" placeholder="Search industry..." />
+          <button id="sortScoreBtn" class="btn" type="button">Sort total_score: OFF</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>id</th>
+                <th>industry</th>
+                <th>stage</th>
+                <th>team_size</th>
+                <th>investment_needed</th>
+                <th>total_score</th>
+                <th>rule_score</th>
+                <th>ai_score</th>
+                <th>risk_flags</th>
+                <th>created_at</th>
+                <th>action</th>
+              </tr>
+            </thead>
+            <tbody id="startupsTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="kpiSection" class="card hidden">
+        <h2>Admin KPI</h2>
+        <div id="kpiContent"></div>
+      </section>
     </section>
+  </main>
 
-    <!-- CTA Section -->
-    <section class="cta">
-        <div class="cta-container">
-            <h2>Ready to Transform Your Business?</h2>
-            <p>Start your AI-driven journey today</p>
-            <button class="btn-primary-large" onclick="showSignupModal()">Get Started</button>
-        </div>
-    </section>
-
-    <!-- Login Modal -->
-    <div id="loginModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeLoginModal()">&times;</span>
-            <h2>Sign In</h2>
-            <form onsubmit="handleLogin(event)">
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" required>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" required>
-                </div>
-                <button type="submit" class="btn-primary">Sign In</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Signup Modal -->
-    <div id="signupModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeSignupModal()">&times;</span>
-            <h2>Create Account</h2>
-            <form onsubmit="handleSignup(event)">
-                <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" required>
-                </div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" required>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" required>
-                </div>
-                <button type="submit" class="btn-primary">Create Account</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Dashboard -->
-    <div id="dashboard" class="dashboard" style="display: none;">
-        <nav class="dashboard-nav">
-            <div class="dashboard-logo">AI4BUSINESS</div>
-            <ul class="dashboard-menu">
-                <li><a href="#" onclick="showDashboardSection('overview')" class="menu-link active">Dashboard</a></li>
-                <li><a href="#" onclick="showDashboardSection('analytics')" class="menu-link">Analytics</a></li>
-                <li><a href="#" onclick="showDashboardSection('reports')" class="menu-link">Reports</a></li>
-                <li><a href="#" onclick="showDashboardSection('settings')" class="menu-link">Settings</a></li>
-            </ul>
-            <button class="btn-logout" onclick="handleLogout()">Logout</button>
-        </nav>
-
-        <div class="dashboard-main">
-            <div id="overview" class="section active">
-                <h1>Welcome to Dashboard</h1>
-                <div class="dashboard-grid">
-                    <div class="dashboard-card">
-                        <div class="card-header">Total Score</div>
-                        <div class="card-value">94.5</div>
-                        <div class="card-change">+2.3% from last week</div>
-                    </div>
-                    <div class="dashboard-card">
-                        <div class="card-header">Active Projects</div>
-                        <div class="card-value">12</div>
-                        <div class="card-change">3 new this month</div>
-                    </div>
-                    <div class="dashboard-card">
-                        <div class="card-header">Processing Time</div>
-                        <div class="card-value">0.34s</div>
-                        <div class="card-change">Average response</div>
-                    </div>
-                    <div class="dashboard-card">
-                        <div class="card-header">Accuracy Rate</div>
-                        <div class="card-value">98.7%</div>
-                        <div class="card-change">Industry leading</div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="analytics" class="section">
-                <h1>Analytics</h1>
-                <div class="analytics-container">
-                    <canvas id="analyticsChart"></canvas>
-                </div>
-            </div>
-
-            <div id="reports" class="section">
-                <h1>Reports</h1>
-                <div class="reports-list">
-                    <div class="report-item">
-                        <h3>Monthly Performance Report</h3>
-                        <p>Generated on Feb 21, 2026</p>
-                        <button class="btn-small">Download</button>
-                    </div>
-                    <div class="report-item">
-                        <h3>Quarterly Analysis</h3>
-                        <p>Generated on Feb 15, 2026</p>
-                        <button class="btn-small">Download</button>
-                    </div>
-                </div>
-            </div>
-
-            <div id="settings" class="section">
-                <h1>Settings</h1>
-                <div class="settings-form">
-                    <div class="form-group">
-                        <label>Company Name</label>
-                        <input type="text" value="Your Company">
-                    </div>
-                    <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" value="user@example.com">
-                    </div>
-                    <button class="btn-primary">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
