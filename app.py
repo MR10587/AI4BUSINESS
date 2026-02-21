@@ -67,6 +67,15 @@ def clamp(value, min_value, max_value):
     return max(min_value, min(max_value, value))
 
 
+def require_admin_user():
+    user = current_user()
+    if not user:
+        return None, (jsonify({"error": "Invalid token subject"}), 401)
+    if user.role != "admin":
+        return None, (jsonify({"error": "Forbidden"}), 403)
+    return user, None
+
+
 def ensure_schema():
     # Lightweight SQLite-safe schema patch for MVP (no migrations).
     cols = db.session.execute(text("PRAGMA table_info(startups)")).fetchall()
@@ -443,6 +452,130 @@ def admin_kpi():
             "recent_activity": recent_activity,
         }
     ), 200
+
+
+@app.post("/api/admin/change-password")
+@jwt_required()
+def admin_change_password():
+    admin_user, err = require_admin_user()
+    if err:
+        return err
+
+    data = get_json_body()
+    if data is None:
+        return jsonify({"error": "Invalid or missing JSON body"}), 400
+
+    current_password = data.get("current_password")
+    new_password = data.get("new_password")
+    confirm_password = data.get("confirm_password")
+
+    if not current_password or not new_password or not confirm_password:
+        return jsonify({"error": "Missing data"}), 400
+    if len(str(new_password)) < 8:
+        return jsonify({"error": "New password must be at least 8 characters"}), 400
+    if new_password != confirm_password:
+        return jsonify({"error": "Passwords do not match"}), 400
+    if not bcrypt.check_password_hash(admin_user.password_hash, current_password):
+        return jsonify({"error": "Current password is incorrect"}), 400
+
+    admin_user.password_hash = bcrypt.generate_password_hash(new_password).decode("utf-8")
+    db.session.commit()
+
+    log_action(
+        admin_user.id,
+        "admin_password_changed",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
+    return jsonify({"message": "Password updated"}), 200
+
+
+@app.get("/api/admin/users")
+@jwt_required()
+def admin_list_users():
+    admin_user, err = require_admin_user()
+    if err:
+        return err
+
+    rows = (
+        db.session.query(User, func.count(Startup.id).label("startups_count"))
+        .outerjoin(Startup, Startup.user_id == User.id)
+        .group_by(User.id)
+        .order_by(User.created_at.desc())
+        .all()
+    )
+
+    result = []
+    for user_row, startups_count in rows:
+        result.append(
+            {
+                "id": user_row.id,
+                "email": user_row.email,
+                "role": user_row.role,
+                "created_at": user_row.created_at.isoformat() if user_row.created_at else None,
+                "startups_count": int(startups_count or 0),
+            }
+        )
+
+    log_action(
+        admin_user.id,
+        "admin_list_users",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
+    return jsonify(result), 200
+
+
+@app.delete("/api/admin/users/<int:user_id>")
+@jwt_required()
+def admin_delete_user(user_id):
+    admin_user, err = require_admin_user()
+    if err:
+        return err
+
+    if admin_user.id == user_id:
+        return jsonify({"error": "Admin cannot delete themself"}), 400
+
+    user_to_delete = User.query.filter_by(id=user_id).first()
+    if not user_to_delete:
+        return jsonify({"error": "User not found"}), 404
+
+    # Policy 1: cascade delete startups for hackathon speed.
+    Startup.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+    AuditLog.query.filter_by(user_id=user_id).update({"user_id": None}, synchronize_session=False)
+    db.session.delete(user_to_delete)
+    db.session.commit()
+
+    log_action(
+        admin_user.id,
+        f"admin_deleted_user:{user_id}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
+    return jsonify({"message": "User deleted"}), 200
+
+
+@app.delete("/api/admin/startups/<int:startup_id>")
+@jwt_required()
+def admin_delete_startup(startup_id):
+    admin_user, err = require_admin_user()
+    if err:
+        return err
+
+    startup = Startup.query.filter_by(id=startup_id).first()
+    if not startup:
+        return jsonify({"error": "Startup not found"}), 404
+
+    db.session.delete(startup)
+    db.session.commit()
+
+    log_action(
+        admin_user.id,
+        f"admin_deleted_startup:{startup_id}",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
+    return jsonify({"message": "Startup deleted"}), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
