@@ -18,6 +18,7 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     startups = db.relationship("Startup", back_populates="owner", lazy=True)
+    login_otps = db.relationship("LoginOTP", back_populates="user", lazy=True)
 
     def to_dict(self):
         return {
@@ -35,6 +36,7 @@ class Startup(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     name = db.Column(db.String(120), nullable=False, default="")
+    contact_name = db.Column(db.String(120), nullable=False, default="")
     contact_email = db.Column(db.String(120), nullable=False, default="")
     contact_phone = db.Column(db.String(40), nullable=False, default="")
     idea = db.Column(db.Text, nullable=False)
@@ -66,6 +68,7 @@ class Startup(db.Model):
             "id": self.id,
             "user_id": self.user_id,
             "name": self.name,
+            "contact_name": self.contact_name,
             "contact_email": self.contact_email,
             "contact_phone": self.contact_phone,
             "idea": self.idea,
@@ -102,4 +105,20 @@ class AuditLog(db.Model):
             "user_agent": self.user_agent,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class LoginOTP(db.Model):
+    __tablename__ = "login_otps"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    otp_hash = db.Column(db.String(255), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    attempts_remaining = db.Column(db.Integer, nullable=False, default=5)
+    used = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    user = db.relationship("User", back_populates="login_otps", lazy=True)
 

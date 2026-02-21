@@ -1,13 +1,20 @@
 # app.py
 import os
 import json
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_bcrypt import Bcrypt
 from sqlalchemy import func, text
-from models import db, User, Startup, AuditLog
-from services import rule_score_calc, call_gemini_score
+from models import db, User, Startup, AuditLog, LoginOTP
+from services import (
+    rule_score_calc,
+    call_gemini_score,
+    password_rules_failed,
+    generate_otp_code,
+    send_email_otp,
+)
 from flask_cors import CORS
 
 
@@ -97,6 +104,9 @@ def ensure_schema():
     if "name" not in col_names:
         db.session.execute(text("ALTER TABLE startups ADD COLUMN name VARCHAR(120) NOT NULL DEFAULT ''"))
         db.session.commit()
+    if "contact_name" not in col_names:
+        db.session.execute(text("ALTER TABLE startups ADD COLUMN contact_name VARCHAR(120) NOT NULL DEFAULT ''"))
+        db.session.commit()
     if "contact_email" not in col_names:
         db.session.execute(text("ALTER TABLE startups ADD COLUMN contact_email VARCHAR(120) NOT NULL DEFAULT ''"))
         db.session.commit()
@@ -124,6 +134,10 @@ def register():
 
     if not name or not email or not password:
         return jsonify({"error": "Missing data"}), 400
+
+    failed_rules = password_rules_failed(password, email)
+    if failed_rules:
+        return jsonify({"error": "Weak password", "details": {"rules_failed": failed_rules}}), 400
 
     if User.query.filter_by(email=email).first():
         return jsonify({"error": "Email exists"}), 409
@@ -159,24 +173,161 @@ def login():
     if not user or not bcrypt.check_password_hash(user.password_hash, password):
         return jsonify({"error": "Invalid credentials"}), 401
 
-    token = create_access_token(identity=str(user.id))
+    latest_otp = LoginOTP.query.filter_by(user_id=user.id).order_by(LoginOTP.created_at.desc()).first()
+    if latest_otp and (datetime.utcnow() - latest_otp.created_at).total_seconds() < 30:
+        log_action(
+            user.id,
+            "login_otp_rate_limited",
+            request.remote_addr,
+            request.headers.get("User-Agent"),
+        )
+        return jsonify({"error": "Too many attempts"}), 429
+
+    otp_code = generate_otp_code()
+    otp_hash = bcrypt.generate_password_hash(otp_code).decode("utf-8")
+
+    LoginOTP.query.filter_by(user_id=user.id, used=False).update({"used": True}, synchronize_session=False)
+    otp_entry = LoginOTP(
+        user_id=user.id,
+        otp_hash=otp_hash,
+        expires_at=datetime.utcnow() + timedelta(minutes=5),
+        attempts_remaining=5,
+        used=False,
+        ip_address=request.remote_addr,
+        user_agent=request.headers.get("User-Agent"),
+    )
+    db.session.add(otp_entry)
+    db.session.commit()
+
+    email_sent = send_email_otp(user.email, otp_code)
+    if not email_sent:
+        return jsonify({"error": "Failed to send OTP"}), 500
 
     log_action(
         user.id,
-        "login",
+        "login_otp_sent",
         request.remote_addr,
         request.headers.get("User-Agent"),
     )
 
-    return jsonify({
-        "access_token": token,
-        "user": {
-            "id": user.id,
-            "name": user.name,
-            "email": user.email,
-            "role": user.role
+    return jsonify({"message": "OTP sent", "needs_2fa": True}), 200
+
+
+@app.post("/api/login/verify")
+def login_verify():
+    data = get_json_body()
+    if data is None:
+        return jsonify({"error": "Invalid or missing JSON body"}), 400
+
+    email = data.get("email")
+    otp = str(data.get("otp", "")).strip()
+    if not email or not otp:
+        return jsonify({"error": "Missing data"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"error": "Invalid OTP"}), 401
+
+    otp_entry = (
+        LoginOTP.query.filter_by(user_id=user.id, used=False)
+        .order_by(LoginOTP.created_at.desc())
+        .first()
+    )
+    if not otp_entry or otp_entry.expires_at < datetime.utcnow():
+        return jsonify({"error": "Invalid OTP"}), 401
+    if otp_entry.attempts_remaining <= 0:
+        log_action(
+            user.id,
+            "login_otp_rate_limited",
+            request.remote_addr,
+            request.headers.get("User-Agent"),
+        )
+        return jsonify({"error": "Too many attempts"}), 429
+
+    if not bcrypt.check_password_hash(otp_entry.otp_hash, otp):
+        otp_entry.attempts_remaining = max(0, otp_entry.attempts_remaining - 1)
+        db.session.commit()
+        log_action(
+            user.id,
+            "login_otp_failed",
+            request.remote_addr,
+            request.headers.get("User-Agent"),
+        )
+        return jsonify({"error": "Invalid OTP"}), 401
+
+    otp_entry.used = True
+    db.session.commit()
+
+    token = create_access_token(identity=str(user.id))
+    log_action(
+        user.id,
+        "login_otp_verified",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
+    return jsonify(
+        {
+            "access_token": token,
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role,
+            },
         }
-    })
+    ), 200
+
+
+@app.post("/api/login/resend")
+def login_resend():
+    data = get_json_body()
+    if data is None:
+        return jsonify({"error": "Invalid or missing JSON body"}), 400
+
+    email = data.get("email")
+    if not email:
+        return jsonify({"error": "Missing data"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"message": "OTP resent"}), 200
+
+    latest_otp = LoginOTP.query.filter_by(user_id=user.id).order_by(LoginOTP.created_at.desc()).first()
+    if latest_otp and (datetime.utcnow() - latest_otp.created_at).total_seconds() < 30:
+        log_action(
+            user.id,
+            "login_otp_rate_limited",
+            request.remote_addr,
+            request.headers.get("User-Agent"),
+        )
+        return jsonify({"error": "Too many attempts"}), 429
+
+    otp_code = generate_otp_code()
+    otp_hash = bcrypt.generate_password_hash(otp_code).decode("utf-8")
+    LoginOTP.query.filter_by(user_id=user.id, used=False).update({"used": True}, synchronize_session=False)
+    otp_entry = LoginOTP(
+        user_id=user.id,
+        otp_hash=otp_hash,
+        expires_at=datetime.utcnow() + timedelta(minutes=5),
+        attempts_remaining=5,
+        used=False,
+        ip_address=request.remote_addr,
+        user_agent=request.headers.get("User-Agent"),
+    )
+    db.session.add(otp_entry)
+    db.session.commit()
+
+    email_sent = send_email_otp(user.email, otp_code)
+    if not email_sent:
+        return jsonify({"error": "Failed to send OTP"}), 500
+
+    log_action(
+        user.id,
+        "login_otp_sent",
+        request.remote_addr,
+        request.headers.get("User-Agent"),
+    )
+    return jsonify({"message": "OTP resent"}), 200
 
 @app.get("/api/me")
 @jwt_required()
