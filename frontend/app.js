@@ -232,6 +232,54 @@ function formatInvestment(value) {
   return num.toLocaleString("en-US");
 }
 
+function buildContactCell(startup) {
+  const div = document.createElement("div");
+  div.className = "contact-info";
+
+  const email = (startup.contact_email || "").trim();
+  const phone = (startup.contact_phone || "").trim();
+
+  if (!email && !phone) {
+    const span = document.createElement("span");
+    span.className = "muted";
+    span.textContent = "—";
+    div.appendChild(span);
+    return div;
+  }
+
+  if (email) {
+    const line = document.createElement("div");
+    line.className = "contact-line";
+    const icon = document.createElement("span");
+    icon.className = "contact-icon";
+    icon.textContent = "✉";
+    line.appendChild(icon);
+    const link = document.createElement("a");
+    link.href = `mailto:${email}`;
+    link.textContent = email;
+    link.title = email;
+    line.appendChild(link);
+    div.appendChild(line);
+  }
+
+  if (phone) {
+    const line = document.createElement("div");
+    line.className = "contact-line";
+    const icon = document.createElement("span");
+    icon.className = "contact-icon";
+    icon.textContent = "☎";
+    line.appendChild(icon);
+    const link = document.createElement("a");
+    link.href = `tel:${phone}`;
+    link.textContent = phone;
+    link.title = phone;
+    line.appendChild(link);
+    div.appendChild(line);
+  }
+
+  return div;
+}
+
 function openStartupModal(startup) {
   if (!startup) return;
   clearNode(el.viewModalBody);
@@ -278,13 +326,12 @@ function openStartupModal(startup) {
   scoresDiv.appendChild(badgesContainer);
   el.viewModalBody.appendChild(scoresDiv);
 
-  // Risk flags section
+  // Risk flags
   const riskDiv = document.createElement("div");
   riskDiv.style.margin = "0.75rem 0";
   const riskLabel = document.createElement("strong");
   riskLabel.textContent = "Risk Flags: ";
   riskDiv.appendChild(riskLabel);
-
   const riskFlags = Array.isArray(startup.risk_flags) ? startup.risk_flags : [];
   if (riskFlags.length > 0) {
     const tagsContainer = document.createElement("span");
@@ -307,8 +354,42 @@ function openStartupModal(startup) {
   }
   el.viewModalBody.appendChild(riskDiv);
 
-  // Idea section
+  // Contact info
+  const contactDiv = document.createElement("div");
+  contactDiv.style.margin = "0.75rem 0";
+  const contactLabel = document.createElement("strong");
+  contactLabel.textContent = "Contact Info:";
+  contactDiv.appendChild(contactLabel);
+  const contactEmail = (startup.contact_email || "").trim();
+  const contactPhone = (startup.contact_phone || "").trim();
+  if (contactEmail || contactPhone) {
+    const contactList = document.createElement("div");
+    contactList.style.marginTop = "4px";
+    contactList.style.paddingLeft = "0.5rem";
+    if (contactEmail) {
+      const ep = document.createElement("p");
+      ep.style.margin = "2px 0";
+      ep.innerHTML = `✉ <a href="mailto:${contactEmail}">${contactEmail}</a>`;
+      contactList.appendChild(ep);
+    }
+    if (contactPhone) {
+      const pp = document.createElement("p");
+      pp.style.margin = "2px 0";
+      pp.innerHTML = `☎ <a href="tel:${contactPhone}">${contactPhone}</a>`;
+      contactList.appendChild(pp);
+    }
+    contactDiv.appendChild(contactList);
+  } else {
+    const noneSpan = document.createElement("span");
+    noneSpan.className = "muted";
+    noneSpan.textContent = " Not provided";
+    contactDiv.appendChild(noneSpan);
+  }
+  el.viewModalBody.appendChild(contactDiv);
+
+  // Idea
   const ideaP = document.createElement("p");
+  ideaP.style.marginTop = "0.75rem";
   const ideaStrong = document.createElement("strong");
   ideaStrong.textContent = "Idea: ";
   ideaP.appendChild(ideaStrong);
@@ -348,7 +429,6 @@ async function handleScoreStartup(startupId, button) {
 function renderStartups() {
   clearNode(el.startupsTbody);
   const rows = filteredStartups();
-  const user = getUser();
   if (!rows.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
@@ -373,19 +453,19 @@ function renderStartups() {
     tdIndustry.textContent = startup.industry || "";
     tr.appendChild(tdIndustry);
 
-    // Team Size (centered)
+    // Team Size
     const tdTeam = document.createElement("td");
     tdTeam.className = "text-center";
     tdTeam.textContent = String(startup.team_size ?? "");
     tr.appendChild(tdTeam);
 
-    // Investment Needed (right-aligned)
+    // Investment
     const tdInvestment = document.createElement("td");
     tdInvestment.className = "text-right";
     tdInvestment.textContent = formatInvestment(startup.investment_needed);
     tr.appendChild(tdInvestment);
 
-    // Scores as color-coded badges
+    // Scores
     const tdScores = document.createElement("td");
     const badgesDiv = document.createElement("div");
     badgesDiv.className = "score-badges";
@@ -408,7 +488,7 @@ function renderStartups() {
     tdScores.appendChild(badgesDiv);
     tr.appendChild(tdScores);
 
-    // Risk Flags as tag pills
+    // Risk Flags
     const tdRisk = document.createElement("td");
     const riskFlags = Array.isArray(startup.risk_flags) ? startup.risk_flags : [];
     if (riskFlags.length > 0) {
@@ -429,42 +509,17 @@ function renderStartups() {
     }
     tr.appendChild(tdRisk);
 
-    // Stage (centered)
+    // Stage
     const tdStage = document.createElement("td");
     tdStage.className = "text-center";
     tdStage.textContent = startup.stage || "";
     tr.appendChild(tdStage);
 
-    // Actions
-    const tdActions = document.createElement("td");
-    tdActions.className = "table-actions";
+    // Contact
+    const tdContact = document.createElement("td");
+    tdContact.appendChild(buildContactCell(startup));
+    tr.appendChild(tdContact);
 
-    const viewBtn = document.createElement("button");
-    viewBtn.className = "btn btn-sm btn-secondary";
-    viewBtn.type = "button";
-    viewBtn.textContent = "View";
-    viewBtn.addEventListener("click", () => openStartupModal(startup));
-    tdActions.appendChild(viewBtn);
-
-    if (user && (user.role === "admin" || (user.role === "startup" && startup.user_id === user.id))) {
-      const scoreBtn = document.createElement("button");
-      scoreBtn.className = "btn btn-sm btn-primary";
-      scoreBtn.type = "button";
-      scoreBtn.textContent = "Score";
-      scoreBtn.addEventListener("click", () => handleScoreStartup(startup.id, scoreBtn));
-      tdActions.appendChild(scoreBtn);
-    }
-
-    if (user && (user.role === "admin" || (user.role === "startup" && startup.user_id === user.id))) {
-      const delBtn = document.createElement("button");
-      delBtn.className = "btn btn-sm btn-danger";
-      delBtn.type = "button";
-      delBtn.textContent = "Delete";
-      delBtn.addEventListener("click", () => handleDeleteStartup(startup.id));
-      tdActions.appendChild(delBtn);
-    }
-
-    tr.appendChild(tdActions);
     el.startupsTbody.appendChild(tr);
   }
 }
@@ -516,26 +571,60 @@ function renderUsers() {
   }
 
   const current = getUser();
+
+  const table = document.createElement("table");
+  table.className = "users-table";
+
+  // Header
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  for (const h of ["ID", "Email", "Role", "Startups", "Created", ""]) {
+    const th = document.createElement("th");
+    th.textContent = h;
+    headerRow.appendChild(th);
+  }
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  // Body
+  const tbody = document.createElement("tbody");
   for (const u of state.users) {
-    const item = document.createElement("div");
-    item.className = "card";
+    const tr = document.createElement("tr");
 
-    const p1 = document.createElement("p");
-    p1.textContent = `#${u.id} ${u.email}`;
-    item.appendChild(p1);
+    const tdId = document.createElement("td");
+    tdId.textContent = `#${u.id}`;
+    tr.appendChild(tdId);
 
-    const p2 = document.createElement("p");
-    p2.className = "muted";
-    p2.textContent = `role: ${u.role} | startups: ${u.startups_count || 0} | created: ${u.created_at || "-"}`;
-    item.appendChild(p2);
+    const tdEmail = document.createElement("td");
+    tdEmail.textContent = u.email || "";
+    tr.appendChild(tdEmail);
 
+    const tdRole = document.createElement("td");
+    const roleBadge = document.createElement("span");
+    roleBadge.className = `role-badge ${u.role || ""}`;
+    roleBadge.textContent = u.role || "";
+    tdRole.appendChild(roleBadge);
+    tr.appendChild(tdRole);
+
+    const tdStartups = document.createElement("td");
+    tdStartups.textContent = String(u.startups_count || 0);
+    tr.appendChild(tdStartups);
+
+    const tdCreated = document.createElement("td");
+    const raw = u.created_at || "";
+    tdCreated.textContent = raw ? raw.replace("T", " ").split(".")[0] : "—";
+    tdCreated.style.fontSize = "0.82rem";
+    tdCreated.style.color = "#7f8c8d";
+    tr.appendChild(tdCreated);
+
+    const tdActions = document.createElement("td");
     if (current && current.id !== u.id) {
       const del = document.createElement("button");
       del.className = "btn btn-sm btn-danger";
       del.type = "button";
-      del.textContent = "Delete user";
+      del.textContent = "Delete";
       del.addEventListener("click", async () => {
-        const ok = window.confirm("Delete this user and their startups?");
+        const ok = window.confirm(`Delete user ${u.email} and their startups?`);
         if (!ok) return;
         const res = await api(`/admin/users/${u.id}`, { method: "DELETE" });
         if (res) {
@@ -543,11 +632,14 @@ function renderUsers() {
           await loadUsers();
         }
       });
-      item.appendChild(del);
+      tdActions.appendChild(del);
     }
+    tr.appendChild(tdActions);
 
-    el.usersList.appendChild(item);
+    tbody.appendChild(tr);
   }
+  table.appendChild(tbody);
+  el.usersList.appendChild(table);
 }
 
 async function loadUsers() {
@@ -602,7 +694,9 @@ function renderApp() {
   el.kpiTabBtn.classList.toggle("hidden", !isAdmin);
   el.usersTabBtn.classList.toggle("hidden", !isAdmin);
   el.securityTabBtn.classList.toggle("hidden", !isAdmin);
-  el.createStartupCard.classList.toggle("hidden", user.role !== "startup" && !isAdmin);
+
+  // Only startup role can create startups — NOT admin
+  el.createStartupCard.classList.toggle("hidden", user.role !== "startup");
 
   showTab("startups");
   loadStartups();
@@ -692,37 +786,32 @@ el.createStartupForm.addEventListener("submit", async (event) => {
       name: document.getElementById("startupName").value.trim(),
       idea: document.getElementById("startupIdea").value.trim(),
       industry: document.getElementById("startupIndustry").value.trim(),
-      team_size: Number(document.getElementById("startupTeamSize").value),
-      investment_needed: Number(document.getElementById("startupInvestment").value),
       stage: document.getElementById("startupStage").value,
+      team_size: Number(document.getElementById("startupTeam").value),
+      investment_needed: Number(document.getElementById("startupInvestment").value),
+      contact_name: document.getElementById("startupContactName").value.trim(),
+      contact_email: document.getElementById("startupContactEmail").value.trim(),
+      contact_phone: document.getElementById("startupContactPhone").value.trim(),
     },
   });
   setButtonLoading(el.createStartupSubmitBtn, false);
-  if (!res) return;
-  addToast("success", "Startup created");
-  el.createStartupForm.reset();
-  loadStartups();
+  if (res) {
+    el.createStartupForm.reset();
+    addToast("success", "Startup created");
+    loadStartups();
+  } 
 });
 
-if (el.viewModalClose) el.viewModalClose.addEventListener("click", closeStartupModal);
-if (el.viewModal) {
-  el.viewModal.addEventListener("click", (event) => {
-    if (event.target === el.viewModal) closeStartupModal();
-  });
-}
-
-if (el.changePasswordForm) el.changePasswordForm.addEventListener("submit", handleChangePassword);
-if (el.registerPassword) {
-  el.registerPassword.addEventListener("input", (e) => updatePasswordStrengthUI(e.target.value));
-  updatePasswordStrengthUI("");
-}
-if (el.generatePasswordBtn) {
-  el.generatePasswordBtn.addEventListener("click", () => {
-    const pwd = generateStrongPassword();
-    el.registerPassword.value = pwd;
-    updatePasswordStrengthUI(pwd);
-    addToast("info", "Generated strong password");
-  });
-}
-
+el.changePasswordForm.addEventListener("submit", handleChangePassword);
+el.registerPassword.addEventListener("input", (e) => updatePasswordStrengthUI(e.target.value));
+el.generatePasswordBtn.addEventListener("click", () => {
+  const pwd = generateStrongPassword();
+  el.registerPassword.value = pwd;
+  updatePasswordStrengthUI(pwd);
+});
+el.viewModalClose.addEventListener("click", closeStartupModal);
+window.addEventListener("click", (event) => {
+  if (event.target === el.viewModal) closeStartupModal();
+});
+ 
 renderApp();

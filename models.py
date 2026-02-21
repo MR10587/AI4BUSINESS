@@ -35,6 +35,7 @@ class Startup(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     name = db.Column(db.String(120), nullable=False, default="")
+    contact_name = db.Column(db.String(100), nullable=False, default="")
     contact_email = db.Column(db.String(120), nullable=False, default="")
     contact_phone = db.Column(db.String(40), nullable=False, default="")
     idea = db.Column(db.Text, nullable=False)
@@ -66,6 +67,7 @@ class Startup(db.Model):
             "id": self.id,
             "user_id": self.user_id,
             "name": self.name,
+            "contact_name": self.contact_name,
             "contact_email": self.contact_email,
             "contact_phone": self.contact_phone,
             "idea": self.idea,

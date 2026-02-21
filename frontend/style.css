@@ -63,7 +63,7 @@ body {
 
 /* Container */
 .container {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
 }
@@ -200,7 +200,7 @@ textarea {
 /* ── Create Startup Form (Grid Layout) ── */
 .create-startup-form {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 1rem 1.5rem;
   align-items: start;
 }
@@ -234,17 +234,18 @@ textarea {
 .score-badges {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .score-badge {
   display: inline-block;
-  padding: 2px 10px;
+  padding: 1px 8px;
   border-radius: 12px;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 600;
   text-align: center;
   white-space: nowrap;
+  width: fit-content;
 }
 
 .score-badge.total {
@@ -266,14 +267,15 @@ textarea {
 .risk-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
+  align-items: flex-start;
 }
 
 .risk-tag {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 1px 7px;
   border-radius: 10px;
-  font-size: 0.75rem;
+  font-size: 0.73rem;
   font-weight: 500;
   background: rgba(192, 57, 43, 0.1);
   color: #c0392b;
@@ -284,6 +286,39 @@ textarea {
   background: rgba(149, 165, 166, 0.15);
   color: var(--color-muted);
   font-style: italic;
+}
+
+/* ── Contact Info in Table ── */
+.contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.contact-info .contact-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-info .contact-line .contact-icon {
+  flex-shrink: 0;
+  opacity: 0.6;
+  font-size: 0.72rem;
+}
+
+.contact-info .contact-line a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.contact-info .contact-line a:hover {
+  text-decoration: underline;
 }
 
 /* ── Auth View ── */
@@ -334,11 +369,18 @@ textarea {
   margin-bottom: 0.5rem;
 }
 
-/* Tables */
+/* ── Tables ── */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
 .table {
   width: 100%;
+  min-width: 900px;
   border-collapse: collapse;
   margin: 1rem 0;
+  table-layout: fixed;
 }
 
 .table thead {
@@ -348,28 +390,104 @@ textarea {
 
 .table th,
 .table td {
-  padding: 0.75rem;
+  padding: 0.6rem 0.5rem;
   text-align: left;
   border-bottom: 1px solid #ddd;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.86rem;
 }
 
 .table th {
   font-weight: 600;
   color: var(--color-dark);
+  font-size: 0.83rem;
+  text-transform: capitalize;
 }
 
 .table tbody tr:hover {
   background: rgba(231, 76, 60, 0.05);
 }
 
+/* Fixed column widths — 8 columns (no Actions), totals 100% */
+.col-name       { width: 10%; }
+.col-industry   { width: 11%; }
+.col-team       { width: 6%;  text-align: center; }
+.col-investment { width: 11%; text-align: right; }
+.col-scores     { width: 10%; }
+.col-risk       { width: 22%; }
+.col-stage      { width: 7%;  text-align: center; }
+.col-contact    { width: 23%; }
+
+td.text-center { text-align: center; }
+td.text-right  { text-align: right; }
+
 .table-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: nowrap;
 }
 
 .btn-sm {
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* ── Users Table ── */
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.users-table thead {
+  background: var(--color-light);
+  border-bottom: 2px solid #ddd;
+}
+
+.users-table th,
+.users-table td {
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+  font-size: 0.88rem;
+}
+
+.users-table th {
+  font-weight: 600;
+  color: var(--color-dark);
+  font-size: 0.84rem;
+}
+
+.users-table tbody tr:hover {
+  background: rgba(231, 76, 60, 0.04);
+}
+
+.users-table .role-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.users-table .role-badge.admin {
+  background: rgba(231, 76, 60, 0.12);
+  color: #c0392b;
+}
+
+.users-table .role-badge.startup {
+  background: rgba(39, 174, 96, 0.12);
+  color: #27ae60;
+}
+
+.users-table .role-badge.investor {
+  background: rgba(243, 156, 18, 0.12);
+  color: #e67e22;
 }
 
 /* KPI Grid */
@@ -450,20 +568,6 @@ textarea {
   }
 }
 
-/* Modal / Detail Card */
-.detail-card {
-  position: relative;
-}
-
-.detail-card h3 {
-  margin-bottom: 0.5rem;
-  color: var(--color-primary);
-}
-
-.detail-card p {
-  margin: 0.5rem 0;
-}
-
 /* Modal */
 .modal {
   position: fixed;
@@ -503,10 +607,6 @@ textarea {
   cursor: pointer;
 }
 
-.users-list .card {
-  margin-bottom: 0.75rem;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   .navbar {
@@ -522,12 +622,12 @@ textarea {
   }
 
   .table {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
   }
 
   .table th,
   .table td {
-    padding: 0.5rem;
+    padding: 0.4rem 0.3rem;
   }
 
   .kpi-grid {
@@ -542,7 +642,6 @@ textarea {
     width: 100%;
   }
 
-  /* Stack form to single column on mobile */
   .create-startup-form {
     grid-template-columns: 1fr;
   }
