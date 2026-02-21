@@ -1,10 +1,13 @@
-from dotenv import load_dotenv
 import os
-from app import app
+
+from dotenv import load_dotenv
+
 
 load_dotenv()
 
+
 class Config:
-    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-    app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+    SECRET_KEY = os.getenv("SECRET_KEY", "secret-key")
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "jwt-secret-key")
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///app.db")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
