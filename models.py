@@ -36,11 +36,7 @@ class Startup(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     name = db.Column(db.String(120), nullable=False, default="")
-<<<<<<< HEAD
-    contact_name = db.Column(db.String(120), nullable=False, default="")
-=======
     contact_name = db.Column(db.String(100), nullable=False, default="")
->>>>>>> 15ef9c0392ffe56c926823c66e80339ca13ad743
     contact_email = db.Column(db.String(120), nullable=False, default="")
     contact_phone = db.Column(db.String(40), nullable=False, default="")
     idea = db.Column(db.Text, nullable=False)
