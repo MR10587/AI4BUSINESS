@@ -218,7 +218,7 @@ function renderStartups() {
   clearNode(el.startupCards);
   const rows = filteredStartups();
   const user = getUser();
-  const canScore = user && (user.role === "startup" || user.role === "admin");
+  const isAdmin = user && user.role === "admin";
 
   if (!rows.length) {
     const tr = document.createElement("tr");
@@ -249,8 +249,26 @@ function renderStartups() {
       tr.appendChild(td);
     }
 
+    const isOwner = Boolean(user && startup.user_id === user.id);
+    const canDelete = Boolean(isAdmin || isOwner);
+    const canScore = Boolean(user && user.role === "startup" && isOwner);
+
     const actionTd = document.createElement("td");
     actionTd.className = "text-center";
+    const actionWrap = document.createElement("div");
+    actionWrap.className = "table-actions";
+
+    const viewBtn = document.createElement("button");
+    viewBtn.className = "btn btn-secondary btn-sm";
+    viewBtn.type = "button";
+    viewBtn.textContent = "View";
+    viewBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openStartupModal(startup);
+    });
+    actionWrap.appendChild(viewBtn);
+
     if (canScore) {
       const scoreBtn = document.createElement("button");
       scoreBtn.className = "btn btn-primary btn-sm";
@@ -267,10 +285,31 @@ function renderStartups() {
           await loadStartups();
         }
       });
-      actionTd.appendChild(scoreBtn);
-    } else {
-      actionTd.textContent = "-";
+      actionWrap.appendChild(scoreBtn);
     }
+
+    if (canDelete) {
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "btn btn-danger btn-sm";
+      deleteBtn.type = "button";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!window.confirm(`Delete startup #${startup.id}?`)) return;
+        setButtonLoading(deleteBtn, true);
+        const endpoint = isAdmin ? `/admin/startups/${startup.id}` : `/startups/${startup.id}`;
+        const deleted = await api(endpoint, { method: "DELETE" });
+        setButtonLoading(deleteBtn, false);
+        if (deleted) {
+          addToast("success", `Startup #${startup.id} deleted`);
+          await loadStartups();
+        }
+      });
+      actionWrap.appendChild(deleteBtn);
+    }
+
+    actionTd.appendChild(actionWrap);
     tr.appendChild(actionTd);
 
     tr.addEventListener("click", () => openStartupModal(startup));
@@ -288,14 +327,18 @@ function renderStartups() {
     const score = document.createElement("p");
     score.textContent = `Total ${startup.total_score || 0} | Rule ${startup.rule_score || 0} | AI ${startup.ai_score || 0}`;
     card.appendChild(score);
-    const viewBtn = document.createElement("button");
-    viewBtn.className = "btn btn-secondary btn-sm";
-    viewBtn.textContent = "View";
-    viewBtn.type = "button";
-    viewBtn.addEventListener("click", () => openStartupModal(startup));
-    card.appendChild(viewBtn);
+    const isOwnerCard = Boolean(user && startup.user_id === user.id);
+    const canDeleteCard = Boolean(isAdmin || isOwnerCard);
+    const canScoreCard = Boolean(user && user.role === "startup" && isOwnerCard);
 
-    if (canScore) {
+    const cardViewBtn = document.createElement("button");
+    cardViewBtn.className = "btn btn-secondary btn-sm";
+    cardViewBtn.textContent = "View";
+    cardViewBtn.type = "button";
+    cardViewBtn.addEventListener("click", () => openStartupModal(startup));
+    card.appendChild(cardViewBtn);
+
+    if (canScoreCard) {
       const scoreBtn = document.createElement("button");
       scoreBtn.className = "btn btn-primary btn-sm";
       scoreBtn.textContent = "Score";
@@ -310,6 +353,25 @@ function renderStartups() {
         }
       });
       card.appendChild(scoreBtn);
+    }
+
+    if (canDeleteCard) {
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "btn btn-danger btn-sm";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.type = "button";
+      deleteBtn.addEventListener("click", async () => {
+        if (!window.confirm(`Delete startup #${startup.id}?`)) return;
+        setButtonLoading(deleteBtn, true);
+        const endpoint = isAdmin ? `/admin/startups/${startup.id}` : `/startups/${startup.id}`;
+        const deleted = await api(endpoint, { method: "DELETE" });
+        setButtonLoading(deleteBtn, false);
+        if (deleted) {
+          addToast("success", `Startup #${startup.id} deleted`);
+          await loadStartups();
+        }
+      });
+      card.appendChild(deleteBtn);
     }
 
     el.startupCards.appendChild(card);
