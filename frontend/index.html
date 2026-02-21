@@ -1,389 +1,299 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AI4BUSINESS - AI-driven startup scoring and investment platform">
-    <title>AI4BUSINESS - Startup Intelligence</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <!-- Toast Container -->
-    <div id="toastContainer" class="toast-container"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI4Business</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="toastRoot" class="toast-root" aria-live="polite"></div>
 
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="navbar-container">
-            <div class="navbar-brand">
-                <span class="brand-logo">AI4BUSINESS</span>
-            </div>
-            <div class="navbar-user" id="navbarUser" style="display: none;">
-                <span class="user-email" id="userEmail"></span>
-                <span class="user-role" id="userRole"></span>
-                <button class="btn btn-logout" onclick="handleLogout()">Logout</button>
-            </div>
-        </div>
-    </nav>
+    <header class="navbar">
+      <div class="brand">AI4Business</div>
+      <div class="nav-right">
+        <div id="userMeta" class="user-meta hidden"></div>
+        <button id="logoutBtn" class="btn btn-danger hidden" type="button">
+          Logout
+        </button>
+      </div>
+    </header>
 
-    <!-- Auth View -->
-    <div id="authView" class="auth-view">
-        <!-- Background decoration -->
-        <div class="auth-background">
-            <div class="auth-decoration"></div>
-        </div>
+    <main class="container">
+      <section id="authView" class="auth-view">
+        <div class="auth-card card">
+          <div class="auth-tabs">
+            <button id="showLoginBtn" class="btn btn-tab active" type="button">
+              Login
+            </button>
+            <button id="showRegisterBtn" class="btn btn-tab" type="button">
+              Register
+            </button>
+          </div>
 
-        <div class="auth-container">
-            <!-- Login Form -->
-            <div id="loginForm" class="auth-card active">
-                <h1 class="auth-title">Welcome Back</h1>
-                <p class="auth-subtitle">Sign in to your account</p>
+          <form id="loginForm" class="form">
+            <h2>Welcome Back</h2>
+            <p class="muted">Log in to manage startups and scoring.</p>
+            <label for="loginEmail">Email</label>
+            <input id="loginEmail" type="email" autocomplete="email" required />
+            <small class="hint"
+              >Use the same email used during registration.</small
+            >
+            <label for="loginPassword">Password</label>
+            <input
+              id="loginPassword"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+            <button id="loginSubmitBtn" class="btn btn-primary" type="submit">
+              Login
+            </button>
+          </form>
 
-                <form onsubmit="handleLogin(event)" class="form">
-                    <div class="form-group">
-                        <label for="loginEmail">Email Address</label>
-                        <input
-                            type="email"
-                            id="loginEmail"
-                            name="email"
-                            placeholder="you@example.com"
-                            required
-                        />
-                    </div>
-
-                    <div class="form-group">
-                        <label for="loginPassword">Password</label>
-                        <input
-                            type="password"
-                            id="loginPassword"
-                            name="password"
-                            placeholder="••••••••"
-                            required
-                        />
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-block" id="loginSubmitBtn">
-                        <span class="btn-text">Sign In</span>
-                        <span class="btn-spinner" style="display: none;"></span>
-                    </button>
-                </form>
-
-                <div class="auth-message" id="loginMessage"></div>
-
-                <p class="auth-footer">
-                    Don't have an account?
-                    <button class="link-button" onclick="switchToRegister()">Create one</button>
-                </p>
-            </div>
-
-            <!-- Register Form -->
-            <div id="registerForm" class="auth-card">
-                <h1 class="auth-title">Get Started</h1>
-                <p class="auth-subtitle">Create your account</p>
-
-                <form onsubmit="handleRegister(event)" class="form">
-                    <div class="form-group">
-                        <label for="registerName">Full Name</label>
-                        <input
-                            type="text"
-                            id="registerName"
-                            name="name"
-                            placeholder="John Doe"
-                            required
-                        />
-                    </div>
-
-                    <div class="form-group">
-                        <label for="registerEmail">Email Address</label>
-                        <input
-                            type="email"
-                            id="registerEmail"
-                            name="email"
-                            placeholder="you@example.com"
-                            required
-                        />
-                    </div>
-
-                    <div class="form-group">
-                        <label for="registerPassword">Password</label>
-                        <input
-                            type="password"
-                            id="registerPassword"
-                            name="password"
-                            placeholder="••••••••"
-                            required
-                        />
-                    </div>
-
-                    <div class="form-group">
-                        <label for="registerPasswordConfirm">Confirm Password</label>
-                        <input
-                            type="password"
-                            id="registerPasswordConfirm"
-                            name="passwordConfirm"
-                            placeholder="••••••••"
-                            required
-                        />
-                    </div>
-
-                    <div class="form-group">
-                        <label>Account Type</label>
-                        <div class="role-selector">
-                            <label class="role-option">
-                                <input type="radio" name="role" value="startup" checked />
-                                <span class="role-label">🚀 Startup Founder</span>
-                            </label>
-                            <label class="role-option">
-                                <input type="radio" name="role" value="investor" />
-                                <span class="role-label">💰 Investor</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-block" id="registerSubmitBtn">
-                        <span class="btn-text">Create Account</span>
-                        <span class="btn-spinner" style="display: none;"></span>
-                    </button>
-                </form>
-
-                <div class="auth-message" id="registerMessage"></div>
-
-                <p class="auth-footer">
-                    Already have an account?
-                    <button class="link-button" onclick="switchToLogin()">Sign in</button>
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- App View (Dashboard) -->
-    <div id="appView" class="app-view" style="display: none;">
-        <!-- Tab Navigation -->
-        <div class="app-tabs">
-            <div class="tabs-container">
-                <button class="tab active" onclick="switchTab('startups')">
-                    📊 Startups
+          <form id="registerForm" class="form hidden">
+            <h2>Create Account</h2>
+            <p class="muted">Register as startup or investor.</p>
+            <label for="registerName">Name</label>
+            <input id="registerName" type="text" autocomplete="name" required />
+            <small class="hint">At least 2 characters recommended.</small>
+            <label for="registerEmail">Email</label>
+            <input
+              id="registerEmail"
+              type="email"
+              autocomplete="email"
+              required
+            />
+            <label for="registerPassword">Password</label>
+            <input
+              id="registerPassword"
+              type="password"
+              autocomplete="new-password"
+              required
+            />
+            <div class="password-strength" id="passwordStrength">
+              <div class="strength-row">
+                <span id="passwordStrengthLabel" class="strength-label"
+                  >Strength: Weak</span
+                >
+                <button
+                  id="generatePasswordBtn"
+                  class="btn btn-secondary btn-sm"
+                  type="button"
+                >
+                  Generate strong password
                 </button>
-                <button class="tab" id="kpiTabBtn" onclick="switchTab('kpi')" style="display: none;">
-                    📈 KPI Dashboard
-                </button>
+              </div>
+              <ul id="passwordChecklist" class="checklist">
+                <li data-check="length">At least 8 characters</li>
+                <li data-check="upper">One uppercase letter</li>
+                <li data-check="lower">One lowercase letter</li>
+                <li data-check="number">One number</li>
+                <li data-check="symbol">One symbol</li>
+                <li data-check="notWeak">Not a common weak password</li>
+              </ul>
             </div>
+            <label for="registerRole">Role</label>
+            <select id="registerRole" required>
+              <option value="startup">startup</option>
+              <option value="investor">investor</option>
+            </select>
+            <button
+              id="registerSubmitBtn"
+              class="btn btn-primary"
+              type="submit"
+            >
+              Create account
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section id="appView" class="app-view hidden">
+        <div class="toolbar card">
+          <div class="tabs">
+            <button
+              id="startupsTabBtn"
+              class="btn btn-tab active"
+              type="button"
+            >
+              Startups
+            </button>
+            <button id="kpiTabBtn" class="btn btn-tab hidden" type="button">
+              KPI
+            </button>
+            <button id="usersTabBtn" class="btn btn-tab hidden" type="button">
+              Users
+            </button>
+            <button
+              id="securityTabBtn"
+              class="btn btn-tab hidden"
+              type="button"
+            >
+              Security
+            </button>
+          </div>
+          <button id="refreshBtn" class="btn btn-secondary" type="button">
+            Refresh
+          </button>
         </div>
 
-        <!-- Main Content -->
-        <div class="app-container">
-            <!-- Startups Tab -->
-            <div id="startupsTab" class="tab-content active">
-                <!-- Header -->
-                <div class="content-header">
-                    <h2 class="content-title">Startups</h2>
-                    <button 
-                        class="btn btn-primary" 
-                        onclick="showCreateStartupModal()" 
-                        id="createStartupBtn"
-                        style="display: none;"
-                    >
-                        + Create Startup
-                    </button>
-                </div>
-
-                <!-- Filters -->
-                <div class="filters-bar">
-                    <input
-                        type="text"
-                        id="industryFilter"
-                        class="filter-input"
-                        placeholder="🔍 Search by industry..."
-                    />
-                    <button class="btn btn-secondary" onclick="toggleSort()">
-                        <span id="sortText">⬇️ Sort by Score</span>
-                    </button>
-                    <button class="btn btn-secondary" onclick="toggleRiskFilter()">
-                        <span id="riskText">⚠️ High Risk Only</span>
-                    </button>
-                </div>
-
-                <!-- Loading State -->
-                <div id="startupsLoading" class="loading-skeleton" style="display: none;">
-                    <div class="skeleton-card"></div>
-                    <div class="skeleton-card"></div>
-                    <div class="skeleton-card"></div>
-                </div>
-
-                <!-- Startups List -->
-                <div id="startupsContent" class="startups-content"></div>
-            </div>
-
-            <!-- KPI Tab -->
-            <div id="kpiTab" class="tab-content">
-                <div class="content-header">
-                    <h2 class="content-title">Admin Dashboard</h2>
-                </div>
-
-                <!-- KPI Cards -->
-                <div class="kpi-grid">
-                    <div class="kpi-card">
-                        <div class="kpi-label">Total Startups</div>
-                        <div class="kpi-value" id="kpiTotal">0</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-label">Average Score</div>
-                        <div class="kpi-value" id="kpiAvg">0</div>
-                    </div>
-                </div>
-
-                <!-- Score Distribution -->
-                <div class="kpi-section">
-                    <h3 class="kpi-section-title">Score Distribution</h3>
-                    <div class="distribution-grid" id="kpiDistribution"></div>
-                </div>
-
-                <!-- Top Industries -->
-                <div class="kpi-section">
-                    <h3 class="kpi-section-title">Top Industries</h3>
-                    <div class="industries-list" id="topIndustriesList"></div>
-                </div>
-
-                <!-- Recent Activity -->
-                <div class="kpi-section">
-                    <h3 class="kpi-section-title">Recent Activity</h3>
-                    <div class="activity-list" id="recentActivityList"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Create Startup Modal -->
-    <div id="createStartupModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Create New Startup</h2>
-                <button class="modal-close" onclick="closeCreateStartupModal()">✕</button>
-            </div>
-
-            <form onsubmit="handleCreateStartup(event)" class="form">
-                <div class="form-group">
-                    <label for="startupName">Startup Name</label>
-                    <input type="text" id="startupName" name="name" required />
-                </div>
-
-                <div class="form-group">
-                    <label for="startupIdea">Idea Description</label>
-                    <textarea id="startupIdea" name="idea" rows="4" required></textarea>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="startupIndustry">Industry</label>
-                        <input type="text" id="startupIndustry" name="industry" required />
-                    </div>
-                    <div class="form-group">
-                        <label for="startupTeamSize">Team Size</label>
-                        <input type="number" id="startupTeamSize" name="teamSize" min="1" required />
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="startupInvestment">Investment Needed ($)</label>
-                    <input type="number" id="startupInvestment" name="investment" min="0" required />
-                </div>
-
-                <div class="form-group">
-                    <label for="startupStage">Stage</label>
-                    <select id="startupStage" name="stage">
-                        <option value="idea">Idea</option>
-                        <option value="prototype">Prototype</option>
-                        <option value="alpha">Alpha</option>
-                        <option value="beta">Beta</option>
-                        <option value="launch">Launch</option>
-                    </select>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeCreateStartupModal()">
-                        Cancel
-                    </button>
-                    <button type="submit" class="btn btn-primary" id="createStartupSubmitBtn">
-                        <span class="btn-text">Create</span>
-                        <span class="btn-spinner" style="display: none;"></span>
-                    </button>
-                </div>
+        <div id="startupsPanel" class="panel card active">
+          <h2>Startups</h2>
+          <div id="createStartupCard" class="card form-card hidden">
+            <h3>Create New Startup</h3>
+            <form id="createStartupForm">
+              <label for="startupName">Name</label>
+              <input id="startupName" type="text" required />
+              <label for="startupIdea">Idea</label>
+              <textarea id="startupIdea" required></textarea>
+              <label for="startupIndustry">Industry</label>
+              <input id="startupIndustry" type="text" required />
+              <label for="startupTeamSize">Team Size</label>
+              <input id="startupTeamSize" type="number" min="1" required />
+              <label for="startupInvestment">Investment Needed</label>
+              <input
+                id="startupInvestment"
+                type="number"
+                step="0.01"
+                required
+              />
+              <label for="startupStage">Stage</label>
+              <select id="startupStage">
+                <option value="idea">idea</option>
+                <option value="mvp">MVP</option>
+                <option value="growth">growth</option>
+                <option value="scale">scale</option>
+              </select>
+              <button
+                id="createStartupSubmitBtn"
+                class="btn btn-primary"
+                type="submit"
+              >
+                Create
+              </button>
             </form>
+          </div>
+
+          <div class="filters">
+            <select id="industryFilter">
+              <option value="">All Industries</option>
+            </select>
+            <button id="sortScoreBtn" class="btn btn-secondary" type="button">
+              Sort by Score
+            </button>
+            <button id="riskFilterBtn" class="btn btn-secondary" type="button">
+              High Risk Only
+            </button>
+          </div>
+
+          <div id="startupSkeleton" class="hidden">Loading startups...</div>
+          <table id="startupsTable" class="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Industry</th>
+                <th>Team</th>
+                <th>Scores</th>
+                <th>Stage</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="startupsTbody"></tbody>
+          </table>
+          <div id="startupCards" class="startup-cards"></div>
         </div>
-    </div>
 
-    <!-- Startup Detail Modal -->
-    <div id="startupDetailModal" class="modal" style="display: none;">
-        <div class="modal-content modal-large">
-            <div class="modal-header">
-                <h2 id="detailTitle">Startup Details</h2>
-                <button class="modal-close" onclick="closeDetailModal()">✕</button>
+        <div id="kpiPanel" class="panel card">
+          <h2>Admin KPI Dashboard</h2>
+          <div class="kpi-grid">
+            <div class="kpi-box">
+              <span class="kpi-label">Total Startups</span>
+              <span id="kpiTotal" class="kpi-value">0</span>
             </div>
-
-            <div class="detail-content">
-                <div class="detail-section">
-                    <h3>Overview</h3>
-                    <div class="detail-grid">
-                        <div>
-                            <strong>Industry:</strong>
-                            <p id="detailIndustry">-</p>
-                        </div>
-                        <div>
-                            <strong>Stage:</strong>
-                            <p id="detailStage">-</p>
-                        </div>
-                        <div>
-                            <strong>Team Size:</strong>
-                            <p id="detailTeamSize">-</p>
-                        </div>
-                        <div>
-                            <strong>Investment Needed:</strong>
-                            <p id="detailInvestment">-</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="detail-section">
-                    <h3>Idea</h3>
-                    <p id="detailIdea">-</p>
-                </div>
-
-                <div class="detail-section">
-                    <h3>Scores</h3>
-                    <div class="score-badges">
-                        <div class="badge badge-total">Total: <strong id="detailTotalScore">0</strong></div>
-                        <div class="badge badge-rule">Rule: <strong id="detailRuleScore">0</strong></div>
-                        <div class="badge badge-ai">AI: <strong id="detailAIScore">0</strong></div>
-                    </div>
-                </div>
-
-                <div class="detail-section" id="detailRiskSection" style="display: none;">
-                    <h3>Risk Flags</h3>
-                    <div class="risk-badges" id="detailRiskFlags"></div>
-                </div>
-
-                <div class="detail-section" id="detailExplanationSection" style="display: none;">
-                    <h3>AI Explanation</h3>
-                    <p id="detailExplanation">-</p>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeDetailModal()">
-                        Close
-                    </button>
-                    <button 
-                        type="button" 
-                        class="btn btn-primary" 
-                        onclick="scoreStartupFromModal()" 
-                        id="scoreButton"
-                        style="display: none;"
-                    >
-                        🧠 Score with AI
-                    </button>
-                </div>
+            <div class="kpi-box">
+              <span class="kpi-label">Average Score</span>
+              <span id="kpiAvg" class="kpi-value">0</span>
             </div>
+            <div class="kpi-box">
+              <span class="kpi-label">Score Distribution</span>
+              <span id="kpiDist" class="kpi-value small"
+                >0-39: 0 | 40-59: 0 | 60-79: 0 | 80-100: 0</span
+              >
+            </div>
+          </div>
+          <h3>Top Industries</h3>
+          <ul id="topIndustriesList" class="clean-list"></ul>
+          <h3>Recent Activity</h3>
+          <ul id="recentActivityList" class="timeline"></ul>
         </div>
+
+        <div id="usersPanel" class="panel card">
+          <h2>Users Management</h2>
+          <div id="usersSkeleton" class="hidden">Loading users...</div>
+          <div id="usersList" class="users-list"></div>
+        </div>
+
+        <div id="securityPanel" class="panel card">
+          <h2>Security - Change Password</h2>
+          <form id="changePasswordForm" class="form-card">
+            <label for="currentPassword">Current Password</label>
+            <input
+              id="currentPassword"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+            <label for="newPassword">New Password</label>
+            <input
+              id="newPassword"
+              type="password"
+              autocomplete="new-password"
+              required
+            />
+            <small class="hint">Must be at least 8 characters.</small>
+            <label for="confirmPassword">Confirm New Password</label>
+            <input
+              id="confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              required
+            />
+            <button
+              id="changePasswordSubmitBtn"
+              class="btn btn-primary"
+              type="submit"
+            >
+              Update Password
+            </button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <div
+      id="viewModal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="viewModalTitle"
+    >
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="viewModalTitle">Startup Details</h3>
+          <button
+            id="viewModalClose"
+            class="modal-close"
+            type="button"
+            aria-label="Close"
+          >
+            X
+          </button>
+        </div>
+        <div id="viewModalBody" class="modal-body"></div>
+      </div>
     </div>
 
     <script src="app.js"></script>
-</body>
+  </body>
 </html>
