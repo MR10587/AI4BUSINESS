@@ -105,7 +105,11 @@ def ensure_schema():
         db.session.execute(text("ALTER TABLE startups ADD COLUMN name VARCHAR(120) NOT NULL DEFAULT ''"))
         db.session.commit()
     if "contact_name" not in col_names:
+<<<<<<< HEAD
         db.session.execute(text("ALTER TABLE startups ADD COLUMN contact_name VARCHAR(120) NOT NULL DEFAULT ''"))
+=======
+        db.session.execute(text("ALTER TABLE startups ADD COLUMN contact_name VARCHAR(100) NOT NULL DEFAULT ''"))
+>>>>>>> 15ef9c0392ffe56c926823c66e80339ca13ad743
         db.session.commit()
     if "contact_email" not in col_names:
         db.session.execute(text("ALTER TABLE startups ADD COLUMN contact_email VARCHAR(120) NOT NULL DEFAULT ''"))
