@@ -67,6 +67,20 @@ def clamp(value, min_value, max_value):
     return max(min_value, min(max_value, value))
 
 
+def parse_int(value, field_name):
+    try:
+        return int(value), None
+    except (TypeError, ValueError):
+        return None, f"Invalid {field_name}"
+
+
+def parse_float(value, field_name):
+    try:
+        return float(value), None
+    except (TypeError, ValueError):
+        return None, f"Invalid {field_name}"
+
+
 def require_admin_user():
     user = current_user()
     if not user:
@@ -191,6 +205,13 @@ def create_startup():
     if not str(data.get("name", "")).strip():
         return jsonify({"error": "Missing data"}), 400
 
+    team_size, err = parse_int(data.get("team_size"), "team_size")
+    if err:
+        return jsonify({"error": err}), 400
+    investment_needed, err = parse_float(data.get("investment_needed"), "investment_needed")
+    if err:
+        return jsonify({"error": err}), 400
+
     risk_flags = data.get("risk_flags", [])
     if isinstance(risk_flags, list):
         risk_flags = json.dumps(risk_flags)
@@ -202,8 +223,8 @@ def create_startup():
         name=str(data["name"]).strip(),
         idea=data["idea"],
         industry=data["industry"],
-        team_size=int(data["team_size"]),
-        investment_needed=float(data["investment_needed"]),
+        team_size=team_size,
+        investment_needed=investment_needed,
         market_impact=5,
         stage=data.get("stage", "idea"),
         rule_score=0,
@@ -279,6 +300,18 @@ def update_startup(startup_id):
         "stage",
     ]:
         if field in data:
+            if field == "team_size":
+                parsed, err = parse_int(data.get(field), "team_size")
+                if err:
+                    return jsonify({"error": err}), 400
+                setattr(startup, field, parsed)
+                continue
+            if field == "investment_needed":
+                parsed, err = parse_float(data.get(field), "investment_needed")
+                if err:
+                    return jsonify({"error": err}), 400
+                setattr(startup, field, parsed)
+                continue
             setattr(startup, field, data[field])
 
     if "risk_flags" in data:

@@ -5,7 +5,6 @@ const state = {
   users: [],
   sortByScore: false,
   highRiskOnly: false,
-  startupsLoading: false,
   currentTab: "startups",
 };
 
@@ -38,24 +37,23 @@ const el = {
   riskFilterBtn: document.getElementById("riskFilterBtn"),
   startupSkeleton: document.getElementById("startupSkeleton"),
   startupsTbody: document.getElementById("startupsTbody"),
-  startupCards: document.getElementById("startupCards"),
-  startupDetailCard: document.getElementById("startupDetailCard"),
-  detailTitle: document.getElementById("detailTitle"),
-  detailMeta: document.getElementById("detailMeta"),
-  detailIdea: document.getElementById("detailIdea"),
-  detailCloseBtn: document.getElementById("detailCloseBtn"),
   kpiTotal: document.getElementById("kpiTotal"),
   kpiAvg: document.getElementById("kpiAvg"),
   kpiDist: document.getElementById("kpiDist"),
   topIndustriesList: document.getElementById("topIndustriesList"),
   recentActivityList: document.getElementById("recentActivityList"),
   usersSkeleton: document.getElementById("usersSkeleton"),
-  usersTbody: document.getElementById("usersTbody"),
+  usersList: document.getElementById("usersList"),
   changePasswordForm: document.getElementById("changePasswordForm"),
   changePasswordSubmitBtn: document.getElementById("changePasswordSubmitBtn"),
+  viewModal: document.getElementById("viewModal"),
+  viewModalClose: document.getElementById("viewModalClose"),
+  viewModalBody: document.getElementById("viewModalBody"),
+  registerPassword: document.getElementById("registerPassword"),
+  passwordStrengthLabel: document.getElementById("passwordStrengthLabel"),
+  passwordChecklist: document.getElementById("passwordChecklist"),
+  generatePasswordBtn: document.getElementById("generatePasswordBtn"),
 };
-
-// ===== Utilities =====
 
 function getToken() {
   return localStorage.getItem("token") || "";
@@ -72,24 +70,20 @@ function getUser() {
 }
 
 function addToast(type, message) {
+  if (!el.toastRoot) return;
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
   toast.textContent = message;
   el.toastRoot.appendChild(toast);
   setTimeout(() => {
     if (toast.parentNode) toast.parentNode.removeChild(toast);
-  }, 3500);
+  }, 3200);
 }
 
 function setButtonLoading(button, isLoading) {
   if (!button) return;
   button.disabled = isLoading;
   button.classList.toggle("loading", isLoading);
-}
-
-function setStartupsLoading(isLoading) {
-  state.startupsLoading = isLoading;
-  el.startupSkeleton.classList.toggle("hidden", !isLoading);
 }
 
 function logout(showToast = true) {
@@ -113,265 +107,325 @@ async function api(path, { method = "GET", body, auth = true } = {}) {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    const data = await res.json();
+    let data = {};
+    try {
+      data = await res.json();
+    } catch {
+      data = {};
+    }
 
     if (res.status === 401) {
       logout(false);
       addToast("error", "Session expired. Please login again.");
       return null;
     }
-
-    if (res.status === 403) {
-      addToast("error", "Forbidden: You don't have permission for this action.");
-      return null;
-    }
-
     if (!res.ok) {
-      addToast("error", data.error || "An error occurred");
+      addToast("error", data.error || data.msg || `Request failed (${res.status})`);
       return null;
     }
-
     return data;
-  } catch (err) {
-    addToast("error", `Network error: ${err.message}`);
+  } catch {
+    addToast("error", "Network error");
     return null;
   }
 }
 
+function toggleAuth(mode) {
+  const loginMode = mode === "login";
+  el.loginForm.classList.toggle("hidden", !loginMode);
+  el.registerForm.classList.toggle("hidden", loginMode);
+  el.showLoginBtn.classList.toggle("active", loginMode);
+  el.showRegisterBtn.classList.toggle("active", !loginMode);
+}
+
 function showTab(tabName) {
   state.currentTab = tabName;
-  
   el.startupsPanel.classList.toggle("active", tabName === "startups");
   el.kpiPanel.classList.toggle("active", tabName === "kpi");
   el.usersPanel.classList.toggle("active", tabName === "users");
   el.securityPanel.classList.toggle("active", tabName === "security");
-
   el.startupsTabBtn.classList.toggle("active", tabName === "startups");
   el.kpiTabBtn.classList.toggle("active", tabName === "kpi");
   el.usersTabBtn.classList.toggle("active", tabName === "users");
   el.securityTabBtn.classList.toggle("active", tabName === "security");
 
-  if (tabName === "kpi") {
-    loadKpi();
-  } else if (tabName === "users") {
-    loadUsers();
-  }
+  if (tabName === "kpi") loadKpi();
+  if (tabName === "users") loadUsers();
 }
 
 function clearNode(node) {
-  while (node.firstChild) {
-    node.removeChild(node.firstChild);
-  }
+  if (!node) return;
+  while (node.firstChild) node.removeChild(node.firstChild);
 }
 
-function toggleAuth(form) {
-  const isLogin = form === "login";
-  el.loginForm.classList.toggle("hidden", !isLogin);
-  el.registerForm.classList.toggle("hidden", isLogin);
-  el.showLoginBtn.classList.toggle("active", isLogin);
-  el.showRegisterBtn.classList.toggle("active", !isLogin);
+function isWeakPassword(password) {
+  const weak = new Set(["password", "12345678", "qwerty123", "admin123", "11111111"]);
+  return weak.has(String(password || "").toLowerCase());
 }
 
-// ===== Startups Management =====
+function evaluatePassword(password) {
+  const value = String(password || "");
+  return {
+    length: value.length >= 8,
+    upper: /[A-Z]/.test(value),
+    lower: /[a-z]/.test(value),
+    number: /\d/.test(value),
+    symbol: /[^A-Za-z0-9]/.test(value),
+    notWeak: !isWeakPassword(value),
+  };
+}
 
-function renderStartups() {
-  clearNode(el.startupsTbody);
+function updatePasswordStrengthUI(password) {
+  if (!el.passwordChecklist || !el.passwordStrengthLabel) return;
+  const checks = evaluatePassword(password);
+  const passed = Object.values(checks).filter(Boolean).length;
+  const items = el.passwordChecklist.querySelectorAll("li");
+  items.forEach((item) => {
+    const key = item.getAttribute("data-check");
+    const ok = checks[key];
+    item.style.color = ok ? "#27ae60" : "#95a5a6";
+  });
 
-  if (state.startupsLoading) {
-    return;
-  }
+  let label = "Strength: Weak";
+  if (passed >= 6) label = "Strength: Strong";
+  else if (passed >= 4) label = "Strength: Medium";
+  el.passwordStrengthLabel.textContent = label;
+}
 
-  if (!state.startups.length) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="6" style="text-align: center; padding: 2rem;">No startups found</td>`;
-    el.startupsTbody.appendChild(tr);
-    return;
-  }
+function generateStrongPassword() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+  let out = "";
+  for (let i = 0; i < 14; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
 
-  let filtered = [...state.startups];
-
-  const industry = el.industryFilter.value;
-  if (industry) {
-    filtered = filtered.filter(s => s.industry === industry);
-  }
-
-  if (state.highRiskOnly) {
-    filtered = filtered.filter(s => s.risk_flags && s.risk_flags.length > 0);
-  }
-
-  if (state.sortByScore) {
-    filtered.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
-  }
-
-  const user = getUser();
-  const isAdmin = user && user.role === "admin";
-
-  for (const startup of filtered) {
-    const tr = document.createElement("tr");
-    const ownerName = startup.user_id === user.id ? "(You)" : "";
-
-    let actionsHtml = `<button class="btn btn-sm btn-secondary" data-id="${startup.id}" onclick="viewStartupDetail(${startup.id})">View</button>`;
-    
-    if (user.role === "startup" && startup.user_id === user.id) {
-      actionsHtml += ` <button class="btn btn-sm btn-danger" data-id="${startup.id}" onclick="deleteStartup(${startup.id})">Delete</button>`;
-    } else if (isAdmin) {
-      actionsHtml += ` <button class="btn btn-sm btn-danger" data-id="${startup.id}" onclick="adminDeleteStartup(${startup.id})">Delete</button>`;
-    }
-
-    tr.innerHTML = `
-      <td>${escapeHtml(startup.name)}</td>
-      <td>${escapeHtml(startup.industry)}</td>
-      <td>${startup.team_size}</td>
-      <td>${startup.total_score || 0}</td>
-      <td>${startup.stage}</td>
-      <td>
-        <div class="table-actions">
-          ${actionsHtml}
-        </div>
-      </td>
-    `;
-    el.startupsTbody.appendChild(tr);
-  }
-
-  // Update industry filter options
-  const industries = [...new Set(state.startups.map(s => s.industry))].sort();
-  const currentValue = el.industryFilter.value;
+function renderIndustryFilterOptions() {
+  const current = el.industryFilter.value;
+  const industries = [...new Set(state.startups.map((s) => s.industry).filter(Boolean))].sort();
   clearNode(el.industryFilter);
-  const opt = document.createElement("option");
-  opt.value = "";
-  opt.textContent = "All Industries";
-  el.industryFilter.appendChild(opt);
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "All Industries";
+  el.industryFilter.appendChild(all);
   for (const ind of industries) {
     const option = document.createElement("option");
     option.value = ind;
     option.textContent = ind;
     el.industryFilter.appendChild(option);
   }
-  el.industryFilter.value = currentValue;
+  el.industryFilter.value = current;
 }
 
-function viewStartupDetail(id) {
-  const startup = state.startups.find(s => s.id === id);
+function filteredStartups() {
+  let rows = [...state.startups];
+  const selectedIndustry = el.industryFilter.value;
+  if (selectedIndustry) rows = rows.filter((s) => s.industry === selectedIndustry);
+  if (state.highRiskOnly) rows = rows.filter((s) => Array.isArray(s.risk_flags) && s.risk_flags.length > 0);
+  if (state.sortByScore) rows.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
+  return rows;
+}
+
+function openStartupModal(startup) {
   if (!startup) return;
-
-  el.detailTitle.textContent = startup.name;
-  el.detailMeta.textContent = `Industry: ${startup.industry} | Team: ${startup.team_size} | Score: ${startup.total_score || 0}`;
-  el.detailIdea.textContent = startup.idea;
-
-  el.startupDetailCard.classList.remove("hidden");
+  clearNode(el.viewModalBody);
+  const fields = [
+    ["Name", startup.name || ""],
+    ["Industry", startup.industry || ""],
+    ["Stage", startup.stage || ""],
+    ["Team Size", startup.team_size ?? ""],
+    ["Investment", startup.investment_needed ?? ""],
+    ["Total Score", startup.total_score ?? 0],
+    ["Rule Score", startup.rule_score ?? 0],
+    ["AI Score", startup.ai_score ?? 0],
+    ["Idea", startup.idea || ""],
+  ];
+  for (const [label, value] of fields) {
+    const p = document.createElement("p");
+    const strong = document.createElement("strong");
+    strong.textContent = `${label}: `;
+    p.appendChild(strong);
+    p.appendChild(document.createTextNode(String(value)));
+    el.viewModalBody.appendChild(p);
+  }
+  el.viewModal.classList.remove("hidden");
 }
 
-function escapeHtml(text) {
-  if (!text) return "";
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
+function closeStartupModal() {
+  el.viewModal.classList.add("hidden");
+}
+
+async function handleDeleteStartup(startupId) {
+  const user = getUser();
+  if (!user) return;
+  const ok = window.confirm("Are you sure you want to delete this startup?");
+  if (!ok) return;
+  const path = user.role === "admin" ? `/admin/startups/${startupId}` : `/startups/${startupId}`;
+  const result = await api(path, { method: "DELETE" });
+  if (result) {
+    addToast("success", user.role === "admin" ? "Startup deleted by admin" : "Startup deleted");
+    await loadStartups();
+  }
+}
+
+async function handleScoreStartup(startupId, button) {
+  setButtonLoading(button, true);
+  const result = await api(`/startups/${startupId}/score`, { method: "POST" });
+  setButtonLoading(button, false);
+  if (result) {
+    addToast("success", `Startup scored: total ${result.total_score}`);
+    await loadStartups();
+  }
+}
+
+function renderStartups() {
+  clearNode(el.startupsTbody);
+  const rows = filteredStartups();
+  const user = getUser();
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 6;
+    td.textContent = "No startups found";
+    td.style.textAlign = "center";
+    tr.appendChild(td);
+    el.startupsTbody.appendChild(tr);
+    return;
+  }
+
+  for (const startup of rows) {
+    const tr = document.createElement("tr");
+
+    const tdName = document.createElement("td");
+    tdName.textContent = startup.name || "";
+    tr.appendChild(tdName);
+
+    const tdIndustry = document.createElement("td");
+    tdIndustry.textContent = startup.industry || "";
+    tr.appendChild(tdIndustry);
+
+    const tdTeam = document.createElement("td");
+    tdTeam.textContent = String(startup.team_size ?? "");
+    tr.appendChild(tdTeam);
+
+    const tdScores = document.createElement("td");
+    tdScores.textContent = `T:${startup.total_score || 0} / R:${startup.rule_score || 0} / AI:${startup.ai_score || 0}`;
+    tr.appendChild(tdScores);
+
+    const tdStage = document.createElement("td");
+    tdStage.textContent = startup.stage || "";
+    tr.appendChild(tdStage);
+
+    const tdActions = document.createElement("td");
+    tdActions.className = "table-actions";
+
+    const viewBtn = document.createElement("button");
+    viewBtn.className = "btn btn-sm btn-secondary";
+    viewBtn.type = "button";
+    viewBtn.textContent = "View";
+    viewBtn.addEventListener("click", () => openStartupModal(startup));
+    tdActions.appendChild(viewBtn);
+
+    if (user && (user.role === "admin" || (user.role === "startup" && startup.user_id === user.id))) {
+      const scoreBtn = document.createElement("button");
+      scoreBtn.className = "btn btn-sm btn-primary";
+      scoreBtn.type = "button";
+      scoreBtn.textContent = "Score";
+      scoreBtn.addEventListener("click", () => handleScoreStartup(startup.id, scoreBtn));
+      tdActions.appendChild(scoreBtn);
+    }
+
+    if (user && (user.role === "admin" || (user.role === "startup" && startup.user_id === user.id))) {
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn btn-sm btn-danger";
+      delBtn.type = "button";
+      delBtn.textContent = "Delete";
+      delBtn.addEventListener("click", () => handleDeleteStartup(startup.id));
+      tdActions.appendChild(delBtn);
+    }
+
+    tr.appendChild(tdActions);
+    el.startupsTbody.appendChild(tr);
+  }
 }
 
 async function loadStartups() {
-  setStartupsLoading(true);
-  renderStartups();
+  el.startupSkeleton.classList.remove("hidden");
   const data = await api("/startups");
-  setStartupsLoading(false);
+  el.startupSkeleton.classList.add("hidden");
   if (!data) return;
   state.startups = Array.isArray(data) ? data : [];
+  renderIndustryFilterOptions();
   renderStartups();
 }
 
-async function deleteStartup(id) {
-  if (!confirm(`Are you sure you want to delete this startup?`)) return;
-
-  const result = await api(`/startups/${id}`, { method: "DELETE" });
-  if (result) {
-    addToast("success", "Startup deleted");
-    loadStartups();
-  }
-}
-
-async function adminDeleteStartup(id) {
-  if (!confirm(`Are you sure you want to delete this startup? This action cannot be undone.`)) return;
-
-  const result = await api(`/admin/startups/${id}`, { method: "DELETE" });
-  if (result) {
-    addToast("success", "Startup deleted");
-    loadStartups();
-  }
-}
-
-// ===== KPI Management =====
-
 function renderKpi(data) {
-  el.kpiTotal.textContent = data.total_startups || 0;
-  el.kpiAvg.textContent = (data.avg_total_score || 0).toFixed(2);
-
+  el.kpiTotal.textContent = String(data.total_startups || 0);
+  el.kpiAvg.textContent = String(data.avg_total_score || 0);
   const d = data.score_distribution || {};
-  el.kpiDist.textContent = `0-39: ${d["0_39"] ?? 0} | 40-59: ${d["40_59"] ?? 0} | 60-79: ${d["60_79"] ?? 0} | 80-100: ${d["80_100"] ?? 0}`;
+  el.kpiDist.textContent = `0-39: ${d["0_39"] || 0} | 40-59: ${d["40_59"] || 0} | 60-79: ${d["60_79"] || 0} | 80-100: ${d["80_100"] || 0}`;
 
   clearNode(el.topIndustriesList);
-  const top = Array.isArray(data.top_industries) ? data.top_industries : [];
-  if (!top.length) {
+  for (const item of data.top_industries || []) {
     const li = document.createElement("li");
-    li.textContent = "No data";
+    li.textContent = `${item.industry}: ${item.count}`;
     el.topIndustriesList.appendChild(li);
-  } else {
-    for (const item of top) {
-      const li = document.createElement("li");
-      li.textContent = `${item.industry}: ${item.count}`;
-      el.topIndustriesList.appendChild(li);
-    }
   }
 
   clearNode(el.recentActivityList);
-  const recent = Array.isArray(data.recent_activity) ? data.recent_activity : [];
-  if (!recent.length) {
+  for (const item of data.recent_activity || []) {
     const li = document.createElement("li");
-    li.textContent = "No recent activity";
+    li.textContent = `${item.created_at || "-"} | user:${item.user_id ?? "-"} | ${item.action || ""}`;
     el.recentActivityList.appendChild(li);
-  } else {
-    for (const item of recent) {
-      const li = document.createElement("li");
-      li.textContent = `${item.created_at || "-"} | user:${item.user_id ?? "-"} | ${item.action || ""}`;
-      el.recentActivityList.appendChild(li);
-    }
   }
 }
 
 async function loadKpi() {
   const data = await api("/admin/kpi");
-  if (!data) return;
-  renderKpi(data);
+  if (data) renderKpi(data);
 }
 
-// ===== Users Management (Admin) =====
-
 function renderUsers() {
-  clearNode(el.usersTbody);
-
+  clearNode(el.usersList);
   if (!state.users.length) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="6" style="text-align: center; padding: 2rem;">No users found</td>`;
-    el.usersTbody.appendChild(tr);
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = "No users found";
+    el.usersList.appendChild(p);
     return;
   }
 
-  const currentUser = getUser();
+  const current = getUser();
+  for (const u of state.users) {
+    const item = document.createElement("div");
+    item.className = "card";
 
-  for (const user of state.users) {
-    const tr = document.createElement("tr");
-    const canDelete = user.id !== currentUser.id;
-    const deleteBtn = canDelete 
-      ? `<button class="btn btn-sm btn-danger" onclick="adminDeleteUser(${user.id})">Delete</button>`
-      : `<span class="muted">(self)</span>`;
+    const p1 = document.createElement("p");
+    p1.textContent = `#${u.id} ${u.email}`;
+    item.appendChild(p1);
 
-    tr.innerHTML = `
-      <td>${user.id}</td>
-      <td>${escapeHtml(user.email)}</td>
-      <td>${user.role}</td>
-      <td>${user.startups_count || 0}</td>
-      <td>${new Date(user.created_at).toLocaleDateString()}</td>
-      <td>${deleteBtn}</td>
-    `;
-    el.usersTbody.appendChild(tr);
+    const p2 = document.createElement("p");
+    p2.className = "muted";
+    p2.textContent = `role: ${u.role} | startups: ${u.startups_count || 0} | created: ${u.created_at || "-"}`;
+    item.appendChild(p2);
+
+    if (current && current.id !== u.id) {
+      const del = document.createElement("button");
+      del.className = "btn btn-sm btn-danger";
+      del.type = "button";
+      del.textContent = "Delete user";
+      del.addEventListener("click", async () => {
+        const ok = window.confirm("Delete this user and their startups?");
+        if (!ok) return;
+        const res = await api(`/admin/users/${u.id}`, { method: "DELETE" });
+        if (res) {
+          addToast("success", "User deleted");
+          await loadUsers();
+        }
+      });
+      item.appendChild(del);
+    }
+
+    el.usersList.appendChild(item);
   }
 }
 
@@ -384,65 +438,34 @@ async function loadUsers() {
   renderUsers();
 }
 
-async function adminDeleteUser(id) {
-  if (!confirm(`Are you sure you want to delete this user and all their associated startups?`)) return;
-
-  const result = await api(`/admin/users/${id}`, { method: "DELETE" });
-  if (result) {
-    addToast("success", "User deleted");
-    loadUsers();
-  }
-}
-
-// ===== Security (Admin) =====
-
 async function handleChangePassword(event) {
   event.preventDefault();
-
-  const currentPassword = document.getElementById("currentPassword").value;
-  const newPassword = document.getElementById("newPassword").value;
-  const confirmPassword = document.getElementById("confirmPassword").value;
-
-  if (!currentPassword || !newPassword || !confirmPassword) {
-    addToast("error", "All fields are required");
+  const current_password = document.getElementById("currentPassword").value;
+  const new_password = document.getElementById("newPassword").value;
+  const confirm_password = document.getElementById("confirmPassword").value;
+  if (!current_password || !new_password || !confirm_password) {
+    addToast("error", "All password fields are required");
     return;
   }
-
-  if (newPassword.length < 8) {
+  if (new_password.length < 8) {
     addToast("error", "New password must be at least 8 characters");
     return;
   }
-
-  if (newPassword !== confirmPassword) {
-    addToast("error", "Passwords do not match");
-    return;
-  }
-
   setButtonLoading(el.changePasswordSubmitBtn, true);
-
-  const result = await api("/admin/change-password", {
+  const res = await api("/admin/change-password", {
     method: "POST",
-    body: {
-      current_password: currentPassword,
-      new_password: newPassword,
-      confirm_password: confirmPassword,
-    },
+    body: { current_password, new_password, confirm_password },
   });
-
   setButtonLoading(el.changePasswordSubmitBtn, false);
-
-  if (result) {
-    addToast("success", "Password updated successfully");
+  if (res) {
+    addToast("success", "Password updated");
     el.changePasswordForm.reset();
   }
 }
 
-// ===== Auth Handlers =====
-
 function renderApp() {
   const user = getUser();
   const loggedIn = Boolean(getToken() && user);
-
   el.authView.classList.toggle("hidden", loggedIn);
   el.appView.classList.toggle("hidden", !loggedIn);
   el.logoutBtn.classList.toggle("hidden", !loggedIn);
@@ -458,7 +481,7 @@ function renderApp() {
   el.kpiTabBtn.classList.toggle("hidden", !isAdmin);
   el.usersTabBtn.classList.toggle("hidden", !isAdmin);
   el.securityTabBtn.classList.toggle("hidden", !isAdmin);
-  el.createStartupCard.classList.toggle("hidden", user.role !== "startup");
+  el.createStartupCard.classList.toggle("hidden", user.role !== "startup" && !isAdmin);
 
   showTab("startups");
   loadStartups();
@@ -470,7 +493,7 @@ el.showRegisterBtn.addEventListener("click", () => toggleAuth("register"));
 el.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   setButtonLoading(el.loginSubmitBtn, true);
-  const data = await api("/login", {
+  const res = await api("/login", {
     method: "POST",
     auth: false,
     body: {
@@ -479,52 +502,53 @@ el.loginForm.addEventListener("submit", async (event) => {
     },
   });
   setButtonLoading(el.loginSubmitBtn, false);
-  if (!data) return;
-
-  localStorage.setItem("token", data.access_token);
-  localStorage.setItem("user", JSON.stringify(data.user));
+  if (!res) return;
+  localStorage.setItem("token", res.access_token);
+  localStorage.setItem("user", JSON.stringify(res.user));
   addToast("success", "Login successful");
   renderApp();
 });
 
 el.registerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const password = document.getElementById("registerPassword").value;
+  if (isWeakPassword(password)) {
+    addToast("error", "Please choose a stronger password");
+    return;
+  }
   setButtonLoading(el.registerSubmitBtn, true);
-  const data = await api("/register", {
+  const res = await api("/register", {
     method: "POST",
     auth: false,
     body: {
       name: document.getElementById("registerName").value.trim(),
       email: document.getElementById("registerEmail").value.trim(),
-      password: document.getElementById("registerPassword").value,
+      password,
       role: document.getElementById("registerRole").value,
     },
   });
   setButtonLoading(el.registerSubmitBtn, false);
-  if (!data) return;
-
-  addToast("success", "Registration successful. Please log in.");
+  if (!res) return;
   el.registerForm.reset();
+  addToast("success", "Registration successful. Please login.");
   toggleAuth("login");
-  document.getElementById("loginEmail").focus();
+  updatePasswordStrengthUI("");
 });
 
-el.logoutBtn.addEventListener("click", () => logout());
+el.logoutBtn.addEventListener("click", () => logout(true));
 
 el.refreshBtn.addEventListener("click", () => {
-  if (state.currentTab === "startups") {
-    loadStartups();
-  } else if (state.currentTab === "kpi") {
-    loadKpi();
-  } else if (state.currentTab === "users") {
-    loadUsers();
-  }
+  if (state.currentTab === "startups") loadStartups();
+  if (state.currentTab === "kpi") loadKpi();
+  if (state.currentTab === "users") loadUsers();
 });
 
 el.startupsTabBtn.addEventListener("click", () => showTab("startups"));
 el.kpiTabBtn.addEventListener("click", () => showTab("kpi"));
 el.usersTabBtn.addEventListener("click", () => showTab("users"));
 el.securityTabBtn.addEventListener("click", () => showTab("security"));
+
+el.industryFilter.addEventListener("change", renderStartups);
 
 el.sortScoreBtn.addEventListener("click", () => {
   state.sortByScore = !state.sortByScore;
@@ -538,40 +562,46 @@ el.riskFilterBtn.addEventListener("click", () => {
   renderStartups();
 });
 
-el.industryFilter.addEventListener("change", () => {
-  renderStartups();
-});
-
-el.detailCloseBtn.addEventListener("click", () => {
-  el.startupDetailCard.classList.add("hidden");
-});
-
 el.createStartupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   setButtonLoading(el.createStartupSubmitBtn, true);
-
-  const data = await api("/startups", {
+  const res = await api("/startups", {
     method: "POST",
     body: {
       name: document.getElementById("startupName").value.trim(),
       idea: document.getElementById("startupIdea").value.trim(),
       industry: document.getElementById("startupIndustry").value.trim(),
-      team_size: parseInt(document.getElementById("startupTeamSize").value),
-      investment_needed: parseFloat(document.getElementById("startupInvestment").value),
+      team_size: Number(document.getElementById("startupTeamSize").value),
+      investment_needed: Number(document.getElementById("startupInvestment").value),
       stage: document.getElementById("startupStage").value,
     },
   });
-
   setButtonLoading(el.createStartupSubmitBtn, false);
-
-  if (data) {
-    addToast("success", "Startup created successfully");
-    el.createStartupForm.reset();
-    loadStartups();
-  }
+  if (!res) return;
+  addToast("success", "Startup created");
+  el.createStartupForm.reset();
+  loadStartups();
 });
 
-el.changePasswordForm.addEventListener("submit", handleChangePassword);
+if (el.viewModalClose) el.viewModalClose.addEventListener("click", closeStartupModal);
+if (el.viewModal) {
+  el.viewModal.addEventListener("click", (event) => {
+    if (event.target === el.viewModal) closeStartupModal();
+  });
+}
 
-// Initialize
+if (el.changePasswordForm) el.changePasswordForm.addEventListener("submit", handleChangePassword);
+if (el.registerPassword) {
+  el.registerPassword.addEventListener("input", (e) => updatePasswordStrengthUI(e.target.value));
+  updatePasswordStrengthUI("");
+}
+if (el.generatePasswordBtn) {
+  el.generatePasswordBtn.addEventListener("click", () => {
+    const pwd = generateStrongPassword();
+    el.registerPassword.value = pwd;
+    updatePasswordStrengthUI(pwd);
+    addToast("info", "Generated strong password");
+  });
+}
+
 renderApp();
